@@ -204,6 +204,56 @@ def example_4_1(plotGraph):
     
     return line
 
+
+def example_4_9_2(plotGraph):
+    l0_x = [-3,-1]
+    l0_y = [5,5]
+    l1_x = [-1,-2]
+    l1_y = [5.5,6]
+    
+    x_intp, y_intp, new_l0_x, new_l0_y, new_l1_x, new_l1_y, f_x, f_y = clib.filetLines(l0_x, l0_y, l1_x, l1_y, 0.2)
+    
+    #グラフを描画
+    if plotGraph == True:    
+        plt.plot(l0_x, l0_y, "b")
+        plt.plot(l1_x, l1_y, "b")
+        plt.plot(f_x, f_y, "go")
+        plt.plot(x_intp, y_intp, "ro-")
+        plt.plot(new_l0_x, new_l0_y, "ro--")
+        plt.plot(new_l1_x, new_l1_y, "ro--")
+        plt.axis("equal")
+
+
+def example_4_9_3(plotGraph):
+    l_x = [0.5, 0.8]
+    l_y = [-0.3, 0.6]
+    
+    #スプライン関数/ポリライン関数のデータを計算。
+    tck, u = clib.getSplineData(af.NACA2412_X, af.NACA2412_Y, 3) #スプライン関数
+
+    #補完関数を生成。
+    a = (l_y[1] - l_y[0])/(l_x[1] - l_x[0])
+    b = -a*l_x[0] + l_y[0]
+    
+    opt_xu, p1_x, p1_y, p2_x, p2_y, cx, cy, fx, fy, x_intp, y_intp = clib.filetLineCurve(a, b, tck, 0.3, 3, 0.05)
+    print(opt_xu)
+    
+    
+    #グラフを描画
+    if plotGraph == True:    
+        plt.plot(l_x, l_y, "b")
+        plt.plot(af.NACA2412_X, af.NACA2412_Y, "g")
+        plt.plot(p1_x, p1_y, "ro")
+        plt.plot(p2_x, p2_y, "ko")
+        plt.plot(cx, cy, "ko")
+        plt.plot(fx, fy, "ro")
+        plt.plot(x_intp, y_intp)
+        #plt.plot(x_intp, y_intp, "ro-")
+        #plt.plot(new_l0_x, new_l0_y, "ro--")
+        #plt.plot(new_l1_x, new_l1_y, "ro--")
+        plt.axis("equal")
+    
+
 if __name__ == '__main__':
     
     #example_3_2_1_1(True)
@@ -212,4 +262,6 @@ if __name__ == '__main__':
     #example_3_6_1_2(True)
     #example_3_6_1_3(True)
     #example_3_6_1_1(True)
-    example_4_1(True)
+    #example_4_1(True)
+    #example_4_9_2(True)
+    example_4_9_3(True)
