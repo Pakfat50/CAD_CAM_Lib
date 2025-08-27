@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 # グローバル変数
 N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
+DELTA_U = 0.01 # ベクトル算出用のu差分
 
 
 class Line:
@@ -25,6 +26,28 @@ class Line:
         self.line_type = lineType
         self.st = np.array([x[0], y[0]])
         self.ed = np.array([x[-1], y[-1]])
+        self.length = getLength(x, y)
+
+
+class SLine(Line):
+    def __init__(self, x, y):
+        super().__init__(x, y, "SLine")
+        if x[1] == x[0]:
+            self.a = np.inf
+        else: 
+            self.a = (y[1]-y[0])/(x[1]-x[0])
+        
+        self.m1 = self.a
+        
+        if self.m1 == 0:
+            self.m2 = np.inf
+        else:
+            self.m2 = -1/self.m1
+            
+        self.b = -self.a*x[0] + y[0]
+        self.sita = np.arctan2(y[1]-y[0], x[1]-x[0])
+        self.f_line = getLineFuncFromAB(self.a, self.b)
+        
 
 class Spline(Line):
     def __init__(self, x, y):
@@ -49,47 +72,16 @@ class Spline(Line):
         p = self.f_curve(u)
         d = self.f_diff(u)
         return p[0], -d[0]/d[1]
-
-
-class Arc(Spline):
-    def __init__(self, x, y, cx, cy):
-        temp_x, temp_y = removeSamePoint(x, y)
-        super().__init__(temp_x, temp_y) 
-        self.line_type = "Arc"
-        self.cx = cx
-        self.cy = cy
-        self.sita_st = np.arctan2(y[0]-cy, x[0]-cx)
-        self.sita_ed = np.arctan2(y[-1]-cy, x[-1]-cx)
     
-        
-class Circle(Spline):
-    def __init__(self, r, cx, cy):
-        self.sita = np.linspace(0, 2*np.pi, N_CIRCLE)
-        x = r*np.cos(self.sita) + cx
-        y = r*np.sin(self.sita) + cy
-        super().__init__(x, y) 
-        self.line_type = "Circle"
-        self.cx = cx
-        self.cy = cy
-        self.r = r
+    def getSita1(self, u):
+        d = self.f_diff(u)
+        return np.arctan2(d[1], d[0])
+    
+    def getSita2(self, u):
+        d = self.f_diff(u)
+        return np.arctan2(-d[0], d[1])
 
 
-class Ellipse(Spline):
-    def __init__(self, a, b, deg, cx, cy):
-        rot = np.radians(deg)
-        self.sita = np.linspace(0, 2*np.pi, N_CIRCLE)
-        x = a*np.cos(rot)*np.cos(self.sita) - b*np.sin(rot)*np.sin(self.sita) + cx
-        y = a*np.sin(rot)*np.cos(self.sita) + b*np.cos(rot)*np.sin(self.sita) + cy
-        super().__init__(x, y) 
-        self.line_type = "Ellipse"
-        self.cx = cx
-        self.cy = cy
-        self.a = a
-        self.b = b
-        self.deg = deg
-        self.rot = rot
-        
- 
 class Polyline(Spline):
     def __init__(self, x, y):
         temp_x, temp_y = removeSamePoint(x, y)
@@ -101,25 +93,67 @@ class Polyline(Spline):
         self.f_curve = getInterpFunc(self.tck, 0)
         self.f_diff = getInterpFunc(self.tck, 1)
         
+
+class Arc(Spline):
+    def __init__(self, r, cx, cy, sita_st, sita_ed):
+        self.sita_st = sita_st
+        self.sita_ed = sita_ed
+        self.sita = np.linspace(self.sita_st, self.sita_ed, N_CIRCLE)
+        self.r = r
+        self.cx = cx
+        self.cy = cy
+
+        x = r*np.cos(self.sita) + cx
+        y = r*np.sin(self.sita) + cy
         
-class SLine(Line):
-    def __init__(self, x, y):
-        super().__init__(x, y, "SLine")
-        self.a = (y[1]-y[0])/(x[1]-x[0])
-        self.m1 = self.a
-        self.m2 = -1/self.m1
-        self.b = -self.a*x[0] + y[0]
-        self.sita = np.arctan(self.a)
-        self.f_line = getLineFuncFromAB(self.a, self.b)
+        super().__init__(x, y) 
+        self.line_type = "Arc"
+
+
+class EllipseArc(Spline):
+    def __init__(self, a, b, rot, cx, cy, sita_st, sita_ed):
+        self.sita_st = sita_st
+        self.sita_ed = sita_ed
+        self.sita = np.linspace(self.sita_st, self.sita_ed, N_CIRCLE)
+        self.rot = rot
+        self.a = a
+        self.b = b
+        self.cx = cx
+        self.cy = cy
+        
+        x = a*np.cos(self.rot)*np.cos(self.sita) - b*np.sin(self.rot)*np.sin(self.sita) + cx
+        y = a*np.sin(self.rot)*np.cos(self.sita) + b*np.cos(self.rot)*np.sin(self.sita) + cy
+        
+        super().__init__(x, y) 
+        self.line_type = "EllipseArc"
+
+
+class Circle(Arc):
+    def __init__(self, r, cx, cy):
+        super().__init__(r, cx, cy, 0, 2*np.pi) 
+        self.line_type = "Circle"
+        self.area = np.pi * self.r**2
+
+
+class Ellipse(EllipseArc):
+    def __init__(self, a, b, rot, cx, cy):
+        super().__init__(a, b, rot, cx, cy, 0, 2*np.pi) 
+        self.line_type = "Ellipse"
+        self.area = np.pi * self.a * self.b
         
 
-class CLine(Line):
+class Airfoil(Spline):
     def __init__(self, x, y):
-        super().__init__(x, y, "CLine")
+        super().__init__(x, y, "Airfoil")
+        
 
-class Airfoil(CLine):
-    def __init__(self, x, y):
-        super().__init__(x, y, "Airfoils")    
+def getLength(x, y):
+    i = 0
+    length = [0]
+    while i < len(x) - 1:
+        length.append(np.sqrt((x[i+1]-x[i])**2 + (y[i+1]-y[i])**2))
+        i += 1
+    return np.array(length)
 
 def getM1(x, y):
     i = 0
@@ -184,9 +218,8 @@ def removeSamePoint(x, y):
             new_y.append(y[i])
         i += 1
     
-    if not ((x[-1] == x[-2]) and (y[-1] == y[-2])):
-        new_x.append(x[-1])
-        new_y.append(y[-1])
+    new_x.append(x[-1])
+    new_y.append(y[-1])
     
     return np.array(new_x), np.array(new_y)
 
@@ -276,19 +309,21 @@ def move(line, mx, my):
         return SLine(new_x, new_y)
     
     elif line.line_type == "Arc":
-        return Arc(new_x, new_y, line.cx + mx, line.cy + my)
+        return Arc(line.r, line.cx + mx, line.cy + my, line.sita_st, line.sita_ed)
     
+    elif line.line_type == "EllipseArc":
+        return Arc(line.a, line.b, line.rot, line.cx + mx, line.cy + my, line.sita_st, line.sita_ed)
+        
     elif line.line_type == "Circle":
         return Circle(line.r, line.cx + mx, line.cy + my)
 
     elif line.line_type == "Ellipse":
-        return Ellipse(line.a, line.b, line.deg, line.cx + mx, line.cy + my)
+        return Ellipse(line.a, line.b, line.rot, line.cx + mx, line.cy + my)
 
-def rotate(line, deg, rx, ry):
+def rotate(line, sita, rx, ry):
     
-    sita = np.radians(deg)
-    
-    if (line.line_type == "Arc") or (line.line_type == "Circle") or (line.line_type == "Ellipse") :
+    if (line.line_type == "Arc") or (line.line_type == "EllipseArc") or \
+        (line.line_type == "Circle") or (line.line_type == "Ellipse") :
         x = line.cx - rx
         y = line.cy - ry
         new_cx = np.cos(sita)*x - np.sin(sita)*y + rx
@@ -320,13 +355,16 @@ def rotate(line, deg, rx, ry):
         return SLine(new_x, new_y)
     
     elif line.line_type == "Arc":
-        return Arc(new_x, new_y, new_cx, new_cy)
+        return Arc(line.r, new_cx, new_cy, line.sita_st + sita, line.sita_ed + sita)
+    
+    elif line.line_type == "EllipseArc":
+        return Arc(line.a, line.b, line.rot + sita, new_cx, new_cy, line.sita_st, line.sita_ed)
 
     elif line.line_type == "Circle":
         return Circle(line.r, new_cx, new_cy)
 
     elif line.line_type == "Ellipse":
-        return Ellipse(line.a, line.b, line.deg + deg, new_cx, new_cy)
+        return Ellipse(line.a, line.b, line.rot + sita, new_cx, new_cy)
 
 
 def offset(line, d):
@@ -364,13 +402,16 @@ def offset(line, d):
         return SLine(new_x, new_y)
     
     elif line.line_type == "Arc":
-        return Arc(new_x, new_y, line.cx, line.cy)
+        return Arc(line.r+d, line.cx, line.cy, line.sita_st, line.sita_ed)
+    
+    elif line.line_type == "EllipseArc":
+        return Arc(line.a+d, line.b+d, line.rot, line.cx, line.cy, line.sita_st, line.sita_ed)
 
     elif line.line_type == "Circle":
         return Circle(line.r+d, line.cx, line.cy)
 
     elif line.line_type == "Ellipse":
-        return Ellipse(line.a+d, line.b+d, line.deg, line.cx, line.cy)
+        return Ellipse(line.a+d, line.b+d, line.rot, line.cx, line.cy)
 
 
 def scale(line, s, x0, y0):
@@ -378,7 +419,8 @@ def scale(line, s, x0, y0):
     new_x = (line.x - x0) * s + x0
     new_y = (line.y - y0) * s + y0
  
-    if (line.line_type == "Arc") or (line.line_type == "Circle") or (line.line_type == "Ellipse") :
+    if (line.line_type == "Arc") or (line.line_type == "EllipseArc") or \
+        (line.line_type == "Circle") or (line.line_type == "Ellipse") :
         new_cx = (line.cx - x0) * s + x0
         new_cy = (line.cy - y0) * s + y0
         
@@ -392,24 +434,33 @@ def scale(line, s, x0, y0):
         return SLine(new_x, new_y)
     
     elif line.line_type == "Arc":
-        return Arc(new_x, new_y, new_cx, new_cy)
+        return Arc(line.r*s, new_cx, new_cy, line.sita_st, line.sita_ed)
+    
+    elif line.line_type == "EllipseArc":
+        return Arc(line.a*s, line.b*s, line.rot, new_cx, new_cy, line.sita_st, line.sita_ed)
 
     elif line.line_type == "Circle":
         return Circle(line.r*s, new_cx, new_cy)
 
     elif line.line_type == "Ellipse":
-        return Ellipse(line.a*s, line.b*s, line.deg, new_cx, new_cy)
+        return Ellipse(line.a*s, line.b*s, line.rot, new_cx, new_cy)
 
 
 
-def getFiletSitaArray(sita1, sita2):
-    if sita2-sita1 <= np.pi and sita2-sita1 > -np.pi:
-        sita_array = np.linspace(sita1, sita2, N_FILLET_INTERPORATE)
-    elif sita2-sita1 > np.pi:
-        sita_array = np.linspace(sita1, sita2-2*np.pi, N_FILLET_INTERPORATE)
+def getFiletSita(sita_st, sita_ed):
+    
+    # 開始角から終了角までの変化量（sita_stとsita_edの傾きをもつ線のなす角）を計算
+    delta_sita = sita_ed - sita_st
+    
+    if delta_sita <= np.pi and delta_sita > -np.pi:
+        # 鋭角なのでそのままでOK
+        return sita_st, sita_ed
+    elif delta_sita > np.pi:
+        # 反時計回りとしたとき、終了角が1周分オーバーラップしているので、終了角から2piを引く
+        return sita_st, sita_ed-2*np.pi
     else:
-        sita_array = np.linspace(sita1, sita2+2*np.pi, N_FILLET_INTERPORATE)
-    return sita_array   
+        # 反時計回りとしたとき、終了角が1周分不足しているので、終了角に2piを足す
+        return sita_st, sita_ed +2*np.pi,
 
 
 def filetLines(l0, l1, r):
@@ -446,17 +497,14 @@ def filetLines(l0, l1, r):
         
         f_x, f_y = getCrossPointFromLines(m2_0, b0, m2_1, b1)
 
-        # 補完点郡の作成に用いる、sitaの配列を作成する。
-        sita1 = np.arctan2(p1_y-f_y, p1_x-f_x)
-        sita2 = np.arctan2(p2_y-f_y, p2_x-f_x)
+        # 円弧の始点角と終点角を計算する。
+        sita_st = np.arctan2(p1_y-f_y, p1_x-f_x)
+        sita_ed = np.arctan2(p2_y-f_y, p2_x-f_x)
+        sita_st, sita_ed = getFiletSita(sita_st, sita_ed)
         
-        sita_array = getFiletSitaArray(sita1, sita2)
-        
-        # 幾何より、補完点列を作成する
-        x_intp = r*np.cos(sita_array) + f_x
-        y_intp = r*np.sin(sita_array) + f_y
-        filet = Arc(x_intp, y_intp, f_x, f_y)
-        
+        # フィレットを円弧で作成する
+        filet = Arc(r, f_x, f_y, sita_st, sita_ed)
+                
         # l0とl1の端点をフィレットに一致するように調整
         new_l0 = SLine([l0.x[0], p1_x], [l0.y[0], p1_y])
         new_l1 = SLine([p2_x, l1.x[1]], [p2_y, l1.y[1]])
@@ -514,7 +562,6 @@ def filetLineCurve(line, spline, r, mode, u0):
     
     if mode == 1:
         sita = np.abs((sita_l-sita_c)/2)
-        
         r_f = np.abs(r/np.sin(sita))
         fx_est = cx + r_f * np.cos(sita_min+sita)
         fy_est = cy + r_f * np.sin(sita_min+sita)
@@ -577,20 +624,60 @@ def filetLineCurve(line, spline, r, mode, u0):
         
         a,b = ellipseAB(p1_x, p1_y, p2_x, p2_y, f_x, f_y)
         
-        # 補完点郡の作成に用いる、sitaの配列を作成する。
-        sita1 = np.arctan2(p1_y-f_y, p1_x-f_x)
-        sita2 = np.arctan2(p2_y-f_y, p2_x-f_x)
-        sita_array = getFiletSitaArray(sita1, sita2)
+        # 円弧の始点角と終点角を計算する。
+        sita_st = np.arctan2(p1_y-f_y, p1_x-f_x) # lineとの接点
+        sita_ed = np.arctan2(p2_y-f_y, p2_x-f_x) # splineとの接点
+        sita_st, sita_ed = getFiletSita(sita_st, sita_ed) # sita_st ~ sita_ed が必ず鋭角となるように設定
         
-        # 補完点列を作成する
-        x_intp = a*np.cos(sita_array) + f_x
-        y_intp = b*np.sin(sita_array) + f_y 
-              
+        # 楕円弧を用いてフィレットを作成する
+        filet = EllipseArc(a, b, 0, f_x, f_y, sita_st, sita_ed)
+        
+        # 端点をトリムする        
+        # 直線の始点から終点に向かうベクトルを算出
+        vect_line = line.ed - line.st
+        # フィレットの直線との接点におけるuが増加する方向のベクトルを算出
+        vect_filet_l = np.array(filet.f_curve(filet.u[0] + DELTA_U)) - np.array(filet.f_curve(filet.u[0]))        
+        
+        opt_u = opt_xu[1]
+        # スプラインのフィレットとの接点におけるuが増加する方向のベクトルを算出
+        vect_spline = np.array(spline.f_curve(opt_u + DELTA_U)) - np.array(spline.f_curve(opt_u))
+        # フィレットのスプラインとの接点におけるuが増加する方向のベクトルを算出
+        vect_filet_s = np.array(filet.f_curve(filet.u[-1])) - np.array(filet.f_curve(filet.u[-1] - DELTA_U))
+                
+        # 直線　→　フィレット　→　スプライン　の順にフィレットの点列は生成される
+        # よって直線との接点では、フィレットと直線とのベクトルは反対を向き、スプラインとの接点では同じ方向を向く
+        if np.dot(vect_line, vect_filet_l) < 0:
+            # 直線とフィレットのベクトルが反対方向なので、直線の向きはもとの方向に増加でOK
+            # 始点を接点のx,終点を直線の終点としてトリム
+            t_line = trim(line, p1_x, line.ed[0])
+        else:
+            # 直線とフィレットのベクトルが同じ方向なので、直線の向きはもとの方向に増加するとNG
+            # 始点を直線の始点、終点を接点のxとしてトリム
+            t_line = trim(line, line.st[0], p1_x)        
+        
+        if np.dot(vect_spline, vect_filet_s) >= 0:
+            # スプラインとフィレットのベクトルが同じ方向なので、スプラインはu増加でOK
+            # 始点を接点のu、終点をスプライン終点のuとしてトリム
+            t_spline = trim(spline, opt_u, spline.u[-1])
+        else:
+            # スプラインとフィレットのベクトルが逆向きなので、スプラインのuだとNG
+            # スプライン始点のu、終点を接点のuとしてトリム
+            t_spline = trim(spline, spline.u[0], opt_u)
+        
+        """
+        #for debug
+        plt.plot(p1_x, p1_y, "ro")
+        plt.plot(p2_x, p2_y, "ko")
+        plt.plot(cx, cy, "ko")
+        plt.plot(f_x, f_y, "ro")
+        plt.plot(fx_est, fy_est, "bo")
+        """
+        
     except:
         traceback.print_exc()
         pass
     
-    return opt_xu, p1_x, p1_y, p2_x, p2_y, cx, cy, f_x, f_y, x_intp, y_intp, fx_est, fy_est
+    return t_line, t_spline, filet
 
 def filetCurves(spline1, spline2, r, mode, u0, s0):
     u_root, s_root, cx, cy = getCrossPointFromCurves(spline1.f_curve, spline2.f_curve, u0, s0)
@@ -658,27 +745,68 @@ def filetCurves(spline1, spline2, r, mode, u0, s0):
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2
         
-        rough_xu = fmin(rough_solver, x0 = us0)
-        opt_xu = fmin(rough_solver, x0 = rough_xu)
+        rough_us = fmin(rough_solver, x0 = us0)
+        opt_us = fmin(rough_solver, x0 = rough_us)
         
-        p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_xu)
+        p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_us)
         
         a,b = ellipseAB(p1_x, p1_y, p2_x, p2_y, f_x, f_y)
         
         # 補完点郡の作成に用いる、sitaの配列を作成する。
-        sita1 = np.arctan2(p1_y-f_y, p1_x-f_x)
-        sita2 = np.arctan2(p2_y-f_y, p2_x-f_x)
-        sita_array = getFiletSitaArray(sita1, sita2)
+        sita_st = np.arctan2(p1_y-f_y, p1_x-f_x) # spline1との接点
+        sita_ed = np.arctan2(p2_y-f_y, p2_x-f_x) # spline2との接点
+        sita_st, sita_ed = getFiletSita(sita_st, sita_ed) # sita_st ~ sita_ed が必ず鋭角となるように設定
+          
+        # 楕円弧を用いてフィレットを作成する
+        filet = EllipseArc(a, b, 0, f_x, f_y, sita_st, sita_ed)
         
-        # 補完点列を作成する
-        x_intp = a*np.cos(sita_array) + f_x
-        y_intp = b*np.sin(sita_array) + f_y 
+        # 端点をトリムする        
+        # スプライン1のフィレットとの接点におけるuが増加する方向のベクトルを算出
+        opt_u = opt_us[0]
+        vect_spline1 = np.array(spline1.f_curve(opt_u + DELTA_U)) - np.array(spline1.f_curve(opt_u))
+        # フィレットの直線との接点におけるuが増加する方向のベクトルを算出
+        vect_filet1 = np.array(filet.f_curve(filet.u[0] + DELTA_U)) - np.array(filet.f_curve(filet.u[0]))
+        
+        opt_s = opt_us[1]
+        # スプライン2のフィレットとの接点におけるuが増加する方向のベクトルを算出
+        vect_spline2 = np.array(spline2.f_curve(opt_s + DELTA_U)) - np.array(spline2.f_curve(opt_s))
+        # フィレットのスプラインとの接点におけるuが増加する方向のベクトルを算出
+        vect_filet2 = np.array(filet.f_curve(filet.u[-1])) - np.array(filet.f_curve(filet.u[-1] - DELTA_U))
+                
+        # スプライン1　→　フィレット　→　スプライン2　の順にフィレットの点列は生成される
+        # よってスプライン1との接点では、フィレットとスプライン1とのベクトルは反対を向き、スプライン2との接点では同じ方向を向く
+        if np.dot(vect_spline1, vect_filet1) < 0:
+            # スプライン1とフィレットのベクトルが反対方向なので、スプライン1の向きはもとの方向に増加でOK
+            # 始点を接点のu,終点をスプライン1の終点としてトリム
+            t_spline1 = trim(spline1, opt_u, spline1.u[-1])   
+        else:
+            # スプライン1とフィレットのベクトルが同じ方向なので、スプライン1の向きはもとの方向に増加するとNG
+            # 始点をスプライン1の始点、終点を接点のuとしてトリム
+              t_spline1 = trim(spline1, spline1.u[0], opt_u)
+        
+        if np.dot(vect_spline2, vect_filet2) >= 0:
+            # スプライン2とフィレットのベクトルが同じ方向なので、スプライン2はu増加でOK
+            # 始点を接点のs、終点をスプライン終点のsとしてトリム
+            t_spline2 = trim(spline2, opt_s, spline2.u[-1])
+        else:
+            # スプライン2とフィレットのベクトルが逆向きなので、スプライン2のsだとNG
+            # スプライン2始点のs、終点を接点のsとしてトリム
+            t_spline2 = trim(spline2, spline2.u[0], opt_s)
+        
+        """
+        #for debug
+        plt.plot(p1_x, p1_y, "ro")
+        plt.plot(p2_x, p2_y, "ko")
+        plt.plot(cx, cy, "ko")
+        plt.plot(f_x, f_y, "ro")
+        plt.plot(fx_est, fy_est, "bo")
+        """
               
     except:
         traceback.print_exc()
         pass
     
-    return opt_xu, p1_x, p1_y, p2_x, p2_y, cx, cy, f_x, f_y, x_intp, y_intp, fx_est, fy_est
+    return t_spline1, t_spline2, filet
 
 
 def trim(line, st, ed):
@@ -712,22 +840,12 @@ def trim(line, st, ed):
         new_y.append(y_ed)    
         
         new_x = np.array(new_x)
-        new_y = np.array(new_y)        
+        new_y = np.array(new_y)
     
-    if line.line_type == "Circle":
+    if (line.line_type == "Circle") or (line.line_type == "Ellipse"):
         sita_st = st
         sita_ed = ed
-        sita = np.linspace(sita_st, sita_ed, N_CIRCLE)
-        new_x = line.r*np.cos(sita) + line.cx
-        new_y = line.r*np.sin(sita) + line.cy
-        
-    if line.line_type == "Ellipse":
-        sita_st = st
-        sita_ed = ed
-        sita = np.linspace(sita_st, sita_ed, N_CIRCLE)    
-        new_x = line.a*np.cos(line.rot)*np.cos(sita) - line.b*np.sin(line.rot)*np.sin(sita) + line.cx
-        new_y = line.a*np.sin(line.rot)*np.cos(sita) + line.b*np.cos(line.rot)*np.sin(sita) + line.cy
-        
+
         
     if line.line_type == "Spline":
         return Spline(new_x, new_y)
@@ -743,11 +861,11 @@ def trim(line, st, ed):
 
     elif line.line_type == "Circle":
         #円をトリムしたオブジェクトは円弧で返す
-        return Arc(new_x, new_y, line.cx, line.cy)
+        return Arc(line.r, line.cx, line.cy, sita_st, sita_ed)
 
     elif line.line_type == "Ellipse":
-        #楕円をトリムしたオブジェクトはスプラインで返す
-        return Spline(new_x, new_y)
+        #楕円をトリムしたオブジェクトは楕円弧で返す
+        return EllipseArc(line.a, line.b, line.rot, line.cx, line.cy, sita_st-line.rot, sita_ed-line.rot)
     
     
     

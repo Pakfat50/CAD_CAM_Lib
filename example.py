@@ -236,6 +236,7 @@ def example_4_2(plotGraph):
     # 直線とスプラインを作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
     
     # x,y方向に0.1移動する
     mx = 0.1
@@ -244,14 +245,17 @@ def example_4_2(plotGraph):
     # 移動後の直線とスプラインを作成
     m_line = clib.move(line, mx, my)
     m_spline = clib.move(spline, mx, my)
+    m_ellipse = clib.move(ellipse, mx,my)
     
     # グラフを描画
     if plotGraph == True:
         plt.title("Example of 4.2")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
+        plt.plot(ellipse.x, ellipse.y, "b--")
         plt.plot(m_line.x, m_line.y, "r")
-        plt.plot(m_spline.x, m_spline.y, "r")        
+        plt.plot(m_spline.x, m_spline.y, "r")
+        plt.plot(m_ellipse.x, m_ellipse.y, "r")
         plt.axis("equal")
         plt.show()
 
@@ -259,23 +263,27 @@ def example_4_3(plotGraph):
     # 直線とスプラインを作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
     
     # (x,y) = (0.5, 0.5)を中心に時計回りに45度回転する
     rx = 0.5
     ry = 0.5
-    deg = 45
+    sita = np.radians(45)
     
     # 移動後の直線とスプラインを作成
-    m_line = clib.rotate(line, deg, rx, ry)
-    m_spline = clib.rotate(spline, deg, rx, ry)
+    m_line = clib.rotate(line, sita, rx, ry)
+    m_spline = clib.rotate(spline, sita, rx, ry)
+    m_ellipse = clib.rotate(ellipse, sita, rx, ry)
     
     # グラフを描画
     if plotGraph == True:
         plt.title("Example of 4.3")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
+        plt.plot(ellipse.x, ellipse.y, "b--")
         plt.plot(m_line.x, m_line.y, "r")
         plt.plot(m_spline.x, m_spline.y, "r")
+        plt.plot(m_ellipse.x, m_ellipse.y, "r")
         plt.plot(rx, ry, "ro")
         plt.axis("equal")
         plt.show()    
@@ -323,8 +331,8 @@ def example_4_7(plotGraph):
     b = 1
     rx = 1
     ry = 1
-    deg = 30
-    ellipse = clib.Ellipse(a, b, deg, rx, ry)
+    rot = np.radians(30)
+    ellipse = clib.Ellipse(a, b, rot, rx, ry)
     
     #補完点を200点生成。
     interp_point = np.linspace(0,1,200)  
@@ -381,49 +389,41 @@ def example_4_9_2(plotGraph):
 
 def example_4_9_3(plotGraph):
     # 直線とスプライン曲線を作成
-    line = clib.SLine([-0.0, 0.4], [-0.4, 0.8])
+    line = clib.SLine([-0.0, 0.2], [-0.4, 0.4])
     spline = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52])
 
-    opt_xu, p1_x, p1_y, p2_x, p2_y, cx, cy, fx, fy, x_intp, y_intp, fx_est, fy_est = \
-        clib.filetLineCurve(line, spline, 0.02, 1, 0.4)
+    # 直線とスプラインの交点を、r=0.02でフィレットする。
+    # フィレット箇所は、直線に対して第一象限とする
+    # 複数交点を持つ場合に備え、探索始点はスプラインの40%位置とする
+    t_line, t_spline, filet = clib.filetLineCurve(line, spline, 0.02, 1, 0.4)
     
     #グラフを描画
     if plotGraph == True:    
         plt.plot(line.x, line.y, "b")
-        plt.plot(af.NACA2412_X[0:52], af.NACA2412_Y[0:52], "g")
-        plt.plot(p1_x, p1_y, "ro")
-        plt.plot(p2_x, p2_y, "ko")
-        plt.plot(cx, cy, "ko")
-        plt.plot(fx, fy, "ro")
-        plt.plot(x_intp, y_intp)
-        plt.plot(fx_est, fy_est, "bo")
-        #plt.plot(x_intp, y_intp, "ro-")
-        #plt.plot(new_l0_x, new_l0_y, "ro--")
-        #plt.plot(new_l1_x, new_l1_y, "ro--")
+        plt.plot(spline.x, spline.y, "b")
+        plt.plot(filet.x, filet.y, "r--")
+        plt.plot(t_spline.x, t_spline.y, "r--")
+        plt.plot(t_line.x, t_line.y, "r--")
         plt.axis("equal")
     
     
 def example_4_9_4(plotGraph):
     # 交差するスプライン曲線を2つ作成
     spline1 = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52] - 0.03)
-    spline2 = clib.Spline(af.NACA2412_X[53:-1], af.NACA2412_Y[53:-1] + 0.03) 
+    spline2 = clib.Spline(af.NACA2412_X[51:-1], af.NACA2412_Y[51:-1] + 0.03)
 
-    opt_xu, p1_x, p1_y, p2_x, p2_y, cx, cy, fx, fy, x_intp, y_intp, fx_est, fy_est = \
-        clib.filetCurves(spline1, spline2, 0.02, 1, 0.7, 0.1)
+    # スプラインどうしの交点を、r=0.005でフィレットする。
+    # フィレット箇所は、スプライン1に対して第一象限とする
+    # 複数交点を持つ場合に備え、探索始点はスプライン1、スプライン2の10%位置とする    
+    t_spline1, t_spline2, filet = clib.filetCurves(spline1, spline2, 0.005, 1, 0.1, 0.1)
     
     #グラフを描画
     if plotGraph == True:    
         plt.plot(spline1.x, spline1.y, "b")
         plt.plot(spline2.x, spline2.y, "b")
-        plt.plot(p1_x, p1_y, "ro")
-        plt.plot(p2_x, p2_y, "ko")
-        plt.plot(cx, cy, "ko")
-        plt.plot(fx, fy, "ro")
-        plt.plot(x_intp, y_intp)
-        plt.plot(fx_est, fy_est, "bo")
-        #plt.plot(x_intp, y_intp, "ro-")
-        #plt.plot(new_l0_x, new_l0_y, "ro--")
-        #plt.plot(new_l1_x, new_l1_y, "ro--")
+        plt.plot(filet.x, filet.y, "r--")
+        plt.plot(t_spline1.x, t_spline1.y, "r--")
+        plt.plot(t_spline2.x, t_spline2.y, "r--")        
         plt.axis("equal")
     
   
@@ -520,12 +520,12 @@ def example_4_11_4(plotGraph):
     b = 1
     rx = 1
     ry = 1
-    deg = 30
-    ellipse = clib.Ellipse(a, b, deg, rx, ry)
+    rot = np.radians(30)
+    ellipse = clib.Ellipse(a, b, rot, rx, ry)
 
-    #315度～405度の範囲をトリム
-    sita_st = np.radians(315)
-    sita_ed = np.radians(405)    
+    #180度～270度の範囲をトリム
+    sita_st = np.radians(180)
+    sita_ed = np.radians(270)    
     t_spline = clib.trim(ellipse, sita_st, sita_ed)
     
     # グラフを描画
@@ -538,7 +538,6 @@ def example_4_11_4(plotGraph):
 
 
 if __name__ == '__main__':
-    
     #example_3_2_1_1(True)
     #example_3_2_2_1(True)
     #example_3_5_1(True)
@@ -549,7 +548,7 @@ if __name__ == '__main__':
     #example_3_6_1_3(True)
     #example_4_1(True)
     #example_4_2(True)
-    #example_4_3(True)
+    example_4_3(True)
     #example_4_4(True)
     #example_4_6(True)
     #example_4_7(True)
@@ -560,5 +559,5 @@ if __name__ == '__main__':
     #example_4_10(True)
     #example_4_11_1(True)
     #example_4_11_2(True)
-    example_4_11_3(True)
+    #example_4_11_3(True)
     #example_4_11_4(True)
