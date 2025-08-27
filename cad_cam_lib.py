@@ -17,6 +17,7 @@ from matplotlib import pyplot as plt
 N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
 DELTA_U = 0.01 # ベクトル算出用のu差分
+DIST_NEAR = 0.00001 # 近傍点の判定距離
 
 
 class Line:
@@ -129,31 +130,32 @@ class EllipseArc(Spline):
 
 
 class Circle(Arc):
-    def __init__(self, r, cx, cy):
-        super().__init__(r, cx, cy, 0, 2*np.pi) 
+    def __init__(self, r, cx, cy, ccw = True):         
+        if ccw == True:
+            super().__init__(r, cx, cy, 0, 2*np.pi) 
+        else:
+            super().__init__(r, cx, cy, 2*np.pi, 0) 
         self.line_type = "Circle"
         self.area = np.pi * self.r**2
+        self.ccw = ccw
 
 
 class Ellipse(EllipseArc):
-    def __init__(self, a, b, rot, cx, cy):
-        super().__init__(a, b, rot, cx, cy, 0, 2*np.pi) 
+    def __init__(self, a, b, rot, cx, cy, ccw = True):
+        if ccw == True:
+            super().__init__(a, b, rot, cx, cy, 0, 2*np.pi) 
+        else:
+            super().__init__(a, b, rot, cx, cy, 2*np.pi, 0) 
         self.line_type = "Ellipse"
         self.area = np.pi * self.a * self.b
+        self.ccw = ccw
         
 
 class Airfoil(Spline):
     def __init__(self, x, y):
         super().__init__(x, y, "Airfoil")
         
-
-def getLength(x, y):
-    i = 0
-    length = [0]
-    while i < len(x) - 1:
-        length.append(np.sqrt((x[i+1]-x[i])**2 + (y[i+1]-y[i])**2))
-        i += 1
-    return np.array(length)
+        
 
 def getM1(x, y):
     i = 0
@@ -208,6 +210,32 @@ def getSita2(x, y):
     return sita2
 
 
+def norm(x1, y1, x2, y2):
+    return np.sqrt((x2-x1)**2 + (y2-y1)**2)
+
+def getLength(x, y):
+    i = 0
+    length = [0]
+    while i < len(x) - 1:
+        length.append(norm(x[i], y[i], x[i+1], y[i+1]))
+        i += 1
+    return np.array(length)
+
+
+def getArea(x, y):
+    if norm(x[0], y[0], x[-1], y[-1]) < DIST_NEAR:
+        i = 0
+        temp_s = 0
+        while i < len(x) - 1:
+            temp_s += x[i]*y[i+1] - x[i+1]*y[i]
+            i += 1
+        temp_s += x[-1]*y[0] - x[0]*y[-1]
+        S = 0.5 * temp_s
+        return S
+    else:
+        return 0
+
+
 def removeSamePoint(x, y):
     i = 0
     new_x = []
@@ -223,25 +251,6 @@ def removeSamePoint(x, y):
     
     return np.array(new_x), np.array(new_y)
 
-
-def getInterpFunc(tck, der):
-    def interpFunc(u):
-        return intp.splev(u, tck, der)
-    return interpFunc
-
-
-def getInterpData(x, y, dim):
-    temp_x, temp_y = removeSamePoint(x, y)
-    
-    return intp.splprep([temp_x, temp_y],k=dim,s=0)
-
-def importFromText(fileName, lineType):
-    text_file = np.genfromtxt(fileName, delimiter = ",", skip_header = 1, dtype = float)
-    temp_x = text_file[:,0]
-    temp_y = text_file[:,1]
-    x, y = removeSamePoint(temp_x, temp_y)
-    imported_line = Line(x, y, lineType)
-    return imported_line
 
 def getCrossPointFromPoint(p1_x, p1_y, p2_x, p2_y, p3_x, p3_y, p4_x, p4_y):
     # https://imagingsolution.blog.fc2.com/blog-entry-137.html
@@ -293,6 +302,50 @@ def getCrossPointFromCurves(curve_func1, curve_func2, u0, s0):
     x_root = p_root[0]
     y_root = p_root[1]
     return u_root, s_root, x_root, y_root
+
+
+def getInterpFunc(tck, der):
+    def interpFunc(u):
+        return intp.splev(u, tck, der)
+    return interpFunc
+
+
+def getInterpData(x, y, dim):
+    temp_x, temp_y = removeSamePoint(x, y)
+    
+    return intp.splprep([temp_x, temp_y],k=dim,s=0)
+
+
+def invert(line):
+    new_x = line.x[-1::-1]
+    new_y = line.y[-1::-1]
+    
+    if line.line_type == "Spline":
+        return Spline(new_x, new_y)
+    
+    elif line.line_type == "Polyline":
+        return Polyline(new_x, new_y)
+    
+    elif line.line_type == "SLine":
+        return SLine(new_x, new_y)
+    
+    elif line.line_type == "Arc":
+        return Arc(line.r, line.cx, line.cy, line.sita_ed, line.sita_st)
+
+    elif line.line_type == "Circle":
+        return Circle(line.r, line.cx, line.cy, not(line.ccw))
+
+    elif line.line_type == "Ellipse":
+        return Ellipse(line.a, line.b, line.rot, line.cx, line.cy, not(line.ccw))
+    
+
+def importFromText(fileName, lineType):
+    text_file = np.genfromtxt(fileName, delimiter = ",", skip_header = 1, dtype = float)
+    temp_x = text_file[:,0]
+    temp_y = text_file[:,1]
+    x, y = removeSamePoint(temp_x, temp_y)
+    imported_line = Line(x, y, lineType)
+    return imported_line
 
 
 def move(line, mx, my):
@@ -857,7 +910,7 @@ def trim(line, st, ed):
         return SLine(new_x, new_y)
     
     elif line.line_type == "Arc":
-        return Arc(new_x, new_y, line.cx, line.cy)
+        return Arc(line.r, line.cx, line.cy, sita_st, sita_ed)
 
     elif line.line_type == "Circle":
         #円をトリムしたオブジェクトは円弧で返す

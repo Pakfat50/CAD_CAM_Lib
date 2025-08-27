@@ -219,6 +219,46 @@ def example_3_6_1_3(plotGraph):
     return m2_s, m2_p
 
 
+def example_3_7(plotGraph):
+    # 直線とスプラインと楕円を作成
+    line = clib.SLine([-0.5, -0.1], [-0.2, 0.3])
+    spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
+    
+    # 点列の向きを反転
+    i_line = clib.invert(line)
+    i_spline = clib.invert(spline)
+    i_ellipse = clib.invert(ellipse)
+    
+    # グラフを描画
+    if plotGraph == True:    
+        plt.title("Example of 3.7")
+        plt.plot(line.x, line.y, "b")
+        plt.plot(spline.x, spline.y, "b")
+        plt.plot(ellipse.x, ellipse.y, "b")
+
+        plt.plot(i_line.x, i_line.y, "r--")
+        plt.plot(i_spline.x, i_spline.y, "r--")
+        plt.plot(i_ellipse.x, i_ellipse.y, "r--")
+        
+        plt.quiver(line.x[0], line.y[0], line.x[1]-line.x[0], line.y[1]-line.y[0], \
+           angles='xy',scale_units='xy',scale=3, width=0.01, color = 'blue')
+        plt.quiver(spline.x[0], spline.y[0], spline.x[1]-spline.x[0], spline.y[1]-spline.y[0], \
+           angles='xy',scale_units='xy',scale=0.15, width=0.01, color = 'blue')
+        plt.quiver(ellipse.x[0], ellipse.y[0], ellipse.x[1]-ellipse.x[0], ellipse.y[1]-ellipse.y[0], \
+           angles='xy',scale_units='xy',scale=0.1, width=0.01, color = 'blue')
+
+        plt.quiver(i_line.x[0], i_line.y[0], i_line.x[1]-i_line.x[0], i_line.y[1]-i_line.y[0], \
+           angles='xy',scale_units='xy',scale=3, width=0.01, color = 'red')
+        plt.quiver(i_spline.x[0], i_spline.y[0], i_spline.x[1]-i_spline.x[0], i_spline.y[1]-i_spline.y[0], \
+           angles='xy',scale_units='xy',scale=0.15, width=0.01, color = 'red')
+        plt.quiver(i_ellipse.x[0], i_ellipse.y[0], i_ellipse.x[1]-i_ellipse.x[0], i_ellipse.y[1]-i_ellipse.y[0], \
+           angles='xy',scale_units='xy',scale=0.1, width=0.01, color = 'red')
+        
+        
+        plt.axis("equal")
+        plt.show()        
+
 def example_4_1(plotGraph):
     # ファイルから座標点列を読み込み
     line = clib.importFromText("NACA2412.csv", "spline")
@@ -546,9 +586,10 @@ if __name__ == '__main__':
     #example_3_6_1_1(True)
     #example_3_6_1_2(True)
     #example_3_6_1_3(True)
+    example_3_7(True)
     #example_4_1(True)
     #example_4_2(True)
-    example_4_3(True)
+    #example_4_3(True)
     #example_4_4(True)
     #example_4_6(True)
     #example_4_7(True)
