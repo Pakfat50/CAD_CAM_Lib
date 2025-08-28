@@ -9,6 +9,10 @@ Created on Sun Aug 17 13:36:54 2025
 import cad_cam_lib as clib
 from matplotlib import pyplot as plt
 import numpy as np
+import ezdxf as ez
+from ezdxf import recover
+from ezdxf.addons.drawing import RenderContext, Frontend
+from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
 
 # 内部ライブラリ
 import airfoilData as af
@@ -87,7 +91,7 @@ def example_3_5_1(plotGraph):
 
 
 def example_3_5_2(plotGraph):
-    # 直線とスプライン曲線を作成
+    # 直線とスプラインを作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52])    
     
@@ -104,7 +108,7 @@ def example_3_5_2(plotGraph):
     return line, spline, cx, cy
 
 def example_3_5_3(plotGraph):
-    # 交差するスプライン曲線を2つ作成
+    # 交差するスプラインを2つ作成
     spline1 = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52] - 0.03)
     spline2 = clib.Spline(af.NACA2412_X[53:-1], af.NACA2412_Y[53:-1] + 0.03) 
     
@@ -273,7 +277,7 @@ def example_4_1(plotGraph):
     return line
 
 def example_4_2(plotGraph):
-    # 直線とスプラインを作成
+    # 直線とスプラインと楕円を作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
     ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
@@ -300,7 +304,7 @@ def example_4_2(plotGraph):
         plt.show()
 
 def example_4_3(plotGraph):
-    # 直線とスプラインを作成
+    # 直線とスプラインと楕円を作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
     ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
@@ -428,7 +432,7 @@ def example_4_9_2(plotGraph):
 
 
 def example_4_9_3(plotGraph):
-    # 直線とスプライン曲線を作成
+    # 直線とスプラインを作成
     line = clib.SLine([-0.0, 0.2], [-0.4, 0.4])
     spline = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52])
 
@@ -448,7 +452,7 @@ def example_4_9_3(plotGraph):
     
     
 def example_4_9_4(plotGraph):
-    # 交差するスプライン曲線を2つ作成
+    # 交差するスプラインを2つ作成
     spline1 = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52] - 0.03)
     spline2 = clib.Spline(af.NACA2412_X[51:-1], af.NACA2412_Y[51:-1] + 0.03)
 
@@ -513,8 +517,15 @@ def example_4_11_1(plotGraph):
         plt.show()         
 
 def example_4_11_2(plotGraph):
-    spline1, spline2, u_root1, s_root1 = example_3_5_3(False)
+    # 交差するスプラインを2つ作成
+    spline1 = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52] - 0.03)
+    spline2 = clib.Spline(af.NACA2412_X[53:-1], af.NACA2412_Y[53:-1] + 0.03) 
     
+    #　交点を算出
+    u_root1, s_root1, cx1, cy1 = clib.getCrossPointFromCurves(spline1.f_curve, spline2.f_curve, 0.7, 0.1)
+    u_root2, s_root2, cx2, cy2 = clib.getCrossPointFromCurves(spline1.f_curve, spline2.f_curve, 0.1, 0.7)
+
+    # 交点でトリムしたスプラインを作成
     u_st = 0
     u_ed = u_root1
     s_st = s_root1
@@ -575,6 +586,46 @@ def example_4_11_4(plotGraph):
         plt.plot(t_spline.x, t_spline.y, "r")
         plt.axis("equal")
         plt.show()       
+        
+
+def example_4_12_2(plotGraph):
+    # ezdxfのモデルワークスペースオブジェクトを生成
+    doc = ez.new('R2010', setup=True)
+    msp = doc.modelspace()
+    
+    # レイヤーを追加
+    attr = {'color': 0, #色
+            'lineweight':2, #線幅
+            'linetype': 'Continuous' #線種
+    }
+    
+    doc.layers.new(name="layer0",  dxfattribs = attr) # レイヤーを追加
+    
+    # 直線とスプラインと楕円を作成
+    line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
+    spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
+    
+    # スプラインに補完点を追加
+    u_intp = np.linspace(0, 1, 1000) 
+    spline.setIntporatePoints(u_intp)
+    
+    # モデルワークスペースに作成した直線とスプラインと楕円を追加
+    clib.exportLine2ModeWorkSpace(msp, "layer0", line)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", spline)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", ellipse)
+    
+    # dxfを出力
+    doc.saveas('example_4_12_2.dxf')
+    
+    # dxfファイルをCADを使わずにグラフで確認
+    if plotGraph == True:
+        fig = plt.figure()
+        ax = fig.add_axes([0, 0, 1, 1])
+        ctx = RenderContext(doc)
+        out = MatplotlibBackend(ax)
+        Frontend(ctx, out).draw_layout(msp, finalize=True)
+        fig.show()        
 
 
 if __name__ == '__main__':
@@ -586,7 +637,7 @@ if __name__ == '__main__':
     #example_3_6_1_1(True)
     #example_3_6_1_2(True)
     #example_3_6_1_3(True)
-    example_3_7(True)
+    #example_3_7(True)
     #example_4_1(True)
     #example_4_2(True)
     #example_4_3(True)
@@ -602,3 +653,5 @@ if __name__ == '__main__':
     #example_4_11_2(True)
     #example_4_11_3(True)
     #example_4_11_4(True)
+    example_4_12_2(True)
+    

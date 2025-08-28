@@ -18,6 +18,9 @@ N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
 DELTA_U = 0.01 # ベクトル算出用のu差分
 DIST_NEAR = 0.00001 # 近傍点の判定距離
+DXF_LINETYPES_DEFAULT = "ByLayer" #dxfファイルのデフォルト線種
+DXF_COLOR_DEFAULT = 0 # dxfファイルのデフォルト線色。AutoCAD Color Index (ACI)で指定
+DXF_WIDTH_DEFAULT = 2 # dxfファイルのデフォルト線幅。
 
 
 class Line:
@@ -59,6 +62,8 @@ class Spline(Line):
         self.u = u
         self.f_curve = getInterpFunc(self.tck, 0)
         self.f_diff = getInterpFunc(self.tck, 1)
+        self.x_intp = self.x
+        self.y_intp = self.y
         
     def getPoint(self, u):
         p = self.f_curve(u)
@@ -81,6 +86,11 @@ class Spline(Line):
     def getSita2(self, u):
         d = self.f_diff(u)
         return np.arctan2(-d[0], d[1])
+
+    def setIntporatePoints(self, u):
+        temp_x, temp_y = self.getPoint(u)
+        self.x_intp = temp_x
+        self.y_intp = temp_y
 
 
 class Polyline(Spline):
@@ -912,6 +922,9 @@ def trim(line, st, ed):
     elif line.line_type == "Arc":
         return Arc(line.r, line.cx, line.cy, sita_st, sita_ed)
 
+    elif line.line_type == "EllipseArc":
+        return EllipseArc(line.a, line.b, line.rot, line.cx, line.cy, sita_st-line.rot, sita_ed-line.rot)
+
     elif line.line_type == "Circle":
         #円をトリムしたオブジェクトは円弧で返す
         return Arc(line.r, line.cx, line.cy, sita_st, sita_ed)
@@ -919,7 +932,45 @@ def trim(line, st, ed):
     elif line.line_type == "Ellipse":
         #楕円をトリムしたオブジェクトは楕円弧で返す
         return EllipseArc(line.a, line.b, line.rot, line.cx, line.cy, sita_st-line.rot, sita_ed-line.rot)
+
+
+def getTuplePoints(x, y):
+    points = []
+    i = 0
+    while i < len(x):
+        points.append((x[i], y[i]))
+        i += 1
+    return tuple(points)
     
+    
+def exportLine2ModeWorkSpace(msp, layer, line, \
+                             color=DXF_COLOR_DEFAULT, \
+                             linetypes=DXF_LINETYPES_DEFAULT, \
+                             width=DXF_WIDTH_DEFAULT):
+    
+    attr = {'layer': layer, #レイヤー
+            'color': color, #色
+            'lineweight':width, #線幅
+             'linetype': linetypes #線種
+            }
+    
+    if (line.line_type == "Spline") or (line.line_type == "Polyline") or \
+        (line.line_type == "Ellipse") or line.line_type == "EllipseArc":
+        # スプライン、楕円、楕円弧はezdxfにはないので、ポリラインで描画する
+        points = getTuplePoints(line.x_intp, line.y_intp)
+        msp.add_lwpolyline(points, format="xy", close=False, dxfattribs = attr)
+    
+    elif line.line_type == "SLine":
+        msp.add_line(start=tuple(line.st), end=tuple(line.ed), dxfattribs = attr)
+    
+    elif line.line_type == "Arc":
+        msp.add_arc(center = (line.cx, line.cy), radius = line.r,\
+                    start_angle = np.degrees(line.sita_st), end_angle = np.degrees(line.sita_ed), \
+                    dxfattribs = attr)
+    
+    elif line.line_type == "Circle":
+        msp.add_circle(center = (line.cx, line.cy), radius = line.r, dxfattribs = attr)
+
     
     
 
