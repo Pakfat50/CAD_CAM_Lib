@@ -12,6 +12,7 @@ import ezdxf as ez
 from ezdxf import recover
 from ezdxf.addons.drawing import RenderContext, Frontend
 from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+import copy
 
 # 内部ライブラリ
 import airfoilData as af
@@ -464,7 +465,7 @@ def example_4_7(plotGraph):
         plt.grid(True)
 
 
-def example_4_8(plotGraph):
+def example_4_8_1(plotGraph):
     # 直線とスプラインを作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
@@ -478,13 +479,29 @@ def example_4_8(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.title("Example of 4.8")
+        plt.title("Example of 4.8.1")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
         plt.plot(o_line.x, o_line.y, "r")
         plt.plot(o_spline.x, o_spline.y, "r")
         plt.axis("equal")
         plt.show()    
+
+
+def example_4_8_2(plotGraph):
+    airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
+    airfoil = clib.trim(airfoil, 0.25, 0.75)
+    airfoil = clib.scale(airfoil, 300, 0, 0)
+    collision_airfoil = clib.offset(airfoil, 10)
+    fixed_airfoil = clib.offset(airfoil, 10, True)
+    
+    if plotGraph == True:
+        plt.title("Example of 4.8.2")
+        plt.plot(airfoil.x, airfoil.y, "b--")
+        plt.plot(collision_airfoil.x, collision_airfoil.y, "b")
+        plt.plot(fixed_airfoil.x, fixed_airfoil.y, "r--")
+        plt.legend(["Before Offset","Collision caused by Offset", "Collision fixed"])
+        plt.axis("equal")   
 
 
 def example_4_9_2(plotGraph):
@@ -764,7 +781,6 @@ def example_5_2_1(plotGraph):
     i = 0
     while i < len(line_group_list):
         line_group = line_group_list[i]
-        line_group.checkIsClosed()
         if line_group.closed == True:
             print("line group No.%s is closed"%i)
         else:
@@ -782,11 +798,8 @@ def example_5_2_1(plotGraph):
             plt.plot(init_line.st[0], init_line.st[1], colors_st[i])                
             for line in line_group.lines:
                 plt.plot(line.x, line.y, colors[i])
-                norm = clib.norm(line.x[0], line.y[0], line.x[1], line.y[1])
-                x1 = (line.x[1]-line.x[0])/norm
-                y1 = (line.y[1]-line.y[0])/norm
-                    
-                plt.quiver(line.x[0], line.y[0], x1, y1, \
+                x0,y0,x1,y1 = getQuiver(line)
+                plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
             i += 1
         plt.axis("equal")    
@@ -799,7 +812,6 @@ def example_5_2_2(plotGraph):
     i = 0
     while i < len(line_group_list):
         line_group = line_group_list[i]
-        line_group.checkDirection()
         if line_group.ccw == True:
             print("line group No.%s direction is CCW"%i)
         else:
@@ -811,7 +823,6 @@ def example_5_2_2(plotGraph):
         line_group = line_group_list[i]
         if line_group.ccw == False:
             line_group.invertAll()
-            line_group.checkDirection()
             print("line group No.%s chenge direction to CCW"%i)
         if line_group.ccw == True:
             print("line group No.%s direction is CCW"%i)
@@ -830,15 +841,227 @@ def example_5_2_2(plotGraph):
             plt.plot(init_line.st[0], init_line.st[1], colors_st[i])                
             for line in line_group.lines:
                 plt.plot(line.x, line.y, colors[i])
-                norm = clib.norm(line.x[0], line.y[0], line.x[1], line.y[1])
-                x1 = (line.x[1]-line.x[0])/norm
-                y1 = (line.y[1]-line.y[0])/norm
-                    
-                plt.quiver(line.x[0], line.y[0], x1, y1, \
+                x0,y0,x1,y1 = getQuiver(line)
+                plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
             i += 1
         plt.axis("equal") 
+
+
+def example_5_3_1_1(plotGraph):
+    airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
+    airfoil = clib.scale(airfoil, 300, 0, 0)
+    circle1 = clib.Circle(10, 100, airfoil.f_center(100))
+    circle2 = clib.Circle(250, 100, airfoil.f_center(100))
+    circle3 = clib.Circle(30, 100, airfoil.f_center(100))
+
+    is_inside1 = clib.checkInclusion(airfoil, circle1)
+    is_inside2 = clib.checkInclusion(airfoil, circle2)
+    is_inside3 = clib.checkInclusion(airfoil, circle3)
     
+    if is_inside1 == 0:
+        print("Airfoil in Circle1")
+    elif is_inside1 == 1:
+        print("Circle1 in Airfoil")
+    else:
+        print("Circle1 is colliding with Airfoil")
+        
+    if is_inside2 == 0:
+        print("Airfoil in Circle2")
+    elif is_inside2 == 1:
+        print("Circle2 in Airfoil")
+    else:
+        print("Circle2 is colliding with Airfoil")   
+    
+    if is_inside3 == 0:
+        print("Airfoil in Circle3")
+    elif is_inside3 == 1:
+        print("Circle3 in Airfoil")
+    else:
+        print("Circle3 is colliding with Airfoil")   
+    
+    if plotGraph == True:
+        x1_i, y1_i, x1_o, y1_o = clib.getInclusionList(airfoil, circle1)
+        x2_i, y2_i, x2_o, y2_o = clib.getInclusionList(airfoil, circle2)
+        x3_i, y3_i, x3_o, y3_o = clib.getInclusionList(airfoil, circle3)
+        plt.plot(airfoil.x, airfoil.y, "b")
+        plt.plot(circle1.x, circle1.y, "b")
+        plt.plot(circle2.x, circle2.y, "b")
+        plt.plot(circle3.x, circle3.y, "b")
+        
+        i = 0
+        while i < len(x1_i):
+            plt.plot(x1_i[i], y1_i[i], "k--")
+            i += 1
+        i = 0
+        while i < len(x1_o):
+            plt.plot(x1_o[i], y1_o[i], "r--")
+            i += 1    
+        i = 0
+        while i < len(x2_i):
+            plt.plot(x2_i[i], y2_i[i], "k--")
+            i += 1
+        i = 0
+        while i < len(x2_o):
+            plt.plot(x2_o[i], y2_o[i], "r--")
+            i += 1
+        i = 0
+        while i < len(x3_i):
+            plt.plot(x3_i[i], y3_i[i], "k--")
+            i += 1
+        i = 0
+        while i < len(x3_o):
+            plt.plot(x3_o[i], y3_o[i], "r--")
+            i += 1                
+        plt.axis("equal")    
+
+
+def example_5_3_1_2(plotGraph):
+    airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
+    airfoil = clib.scale(airfoil, 300, 0, 0)
+    r = 10;
+    cx = 100
+    circle = clib.Circle(r, cx, 5)
+    
+    circle_is_inside = clib.checkInclusion(airfoil, circle)
+    airfoil_is_inside = clib.checkInclusion(circle, airfoil)
+    # 外側にあるオブジェクトは反時計回りに、内側にあるオブジェクトは時計回りにカットする
+    if circle_is_inside == 0:
+        if circle.ccw == False:
+            circle = clib.invert(circle)
+    elif circle_is_inside == 1:
+        if circle.ccw == True:
+            circle = clib.invert(circle)
+    else:
+        print("Collision detect!")
+
+    if airfoil_is_inside == 0:
+        if airfoil.ccw == False:
+            airfoil = clib.invert(airfoil)
+    elif airfoil_is_inside == 1:
+        if airfoil.ccw == True:
+            airfoil = clib.invert(airfoil)
+    else:
+        print("Collision detect!")
+        
+    if plotGraph == True:
+        plt.plot(airfoil.x, airfoil.y, "b")
+        plt.plot(circle.x, circle.y, "b")
+        x0,y0,x1,y1 = getQuiver(airfoil)
+        plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+        
+        x0,y0,x1,y1 = getQuiver(circle)
+        plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+        plt.axis("equal")
+
+
+def example_5_3_2(plotGraph):
+    airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
+    airfoil = clib.scale(airfoil, 300, 0, 0)
+    r = 10;
+    cx = -100
+    circle = clib.Circle(r, cx, 5)
+    
+    circle_is_inside = clib.checkInclusion(airfoil, circle)
+    airfoil_is_inside = clib.checkInclusion(circle, airfoil)
+    # 外側にあるオブジェクトは反時計回りに、内側にあるオブジェクトは時計回りにカットする
+    # 外側にあるオブジェクトは外側にオフセット、内側にあるオブジェクトは内側にオフセットする
+    # オフセット方向は、CCWの場合は逆向きにオフセットされるので、補正する
+    d = 3
+    if circle_is_inside == 0:
+        if circle.ccw == False:
+            circle = clib.invert(circle)
+            o_circle = clib.offset(circle,d)
+        else:
+            o_circle = clib.offset(circle,-d)
+    elif circle_is_inside == 1:
+        if circle.ccw == True:
+            circle = clib.invert(circle)
+            o_circle = clib.offset(circle,-d)
+        else:
+            o_circle = clib.offset(circle,d)
+    else:
+        print("Collision detect!")
+
+    if airfoil_is_inside == 0:
+        if airfoil.ccw == False:
+            airfoil = clib.invert(airfoil)
+            o_airfoil = clib.offset(airfoil,d)
+        else:
+            o_airfoil = clib.offset(airfoil,-d)
+    elif airfoil_is_inside == 1:
+        if airfoil.ccw == True:
+            airfoil = clib.invert(airfoil)
+            o_airfoil = clib.offset(airfoil,-d)
+        else:
+            o_airfoil = clib.offset(airfoil,d)
+    else:
+        print("Collision detect!")
+    
+    if plotGraph == True:
+        plt.plot(airfoil.x, airfoil.y, "b")
+        plt.plot(circle.x, circle.y, "b")
+        plt.plot(o_airfoil.x, o_airfoil.y, "b--")
+        plt.plot(o_circle.x, o_circle.y, "b--")
+        x0,y0,x1,y1 = getQuiver(airfoil)
+        plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+        
+        x0,y0,x1,y1 = getQuiver(circle)
+        plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+        plt.axis("equal")   
+
+    
+def example_5_3_3(plotGraph):
+    doc = ez.readfile("test1.dxf")
+    msp = doc.modelspace()
+    lines = clib.importLinesFromDxf(msp, "LINE")
+    splines = clib.importLinesFromDxf(msp, "SPLINE")
+
+    all_lines = lines + splines
+    line_group_list = clib.detectCloseLines(all_lines, 2)
+    d = 2
+    
+    i = 0
+    o_line_group_list = []
+    for line_group in line_group_list:
+        if line_group.ccw == False:
+            line_group.invertAll()
+        o_line_group = copy.deepcopy(line_group)
+        o_line_group.offset(-d)
+        #o_line_group.sort(0)
+        o_line_group.insertFilet()
+        
+        o_line_group_list.append(o_line_group)
+            
+        i += 1
+    
+    
+    if plotGraph == True:
+        for line_group in line_group_list:
+            for line in line_group.lines:
+                plt.plot(line.x, line.y, "b")
+        
+        for o_line_group in o_line_group_list:
+            init_line = o_line_group.lines[0]
+            plt.plot(init_line.st[0], init_line.st[1], "bo")        
+            for o_line in o_line_group.lines:
+                plt.plot(o_line.x, o_line.y, "b--")    
+                x0,y0,x1,y1 = getQuiver(o_line)
+                plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=1, width=0.003, color = 'black')  
+        plt.axis("equal")
+
+
+def getQuiver(line):
+    norm = clib.norm(line.x[0], line.y[0], line.x[1], line.y[1])
+    x1 = (line.x[1]-line.x[0])/norm
+    y1 = (line.y[1]-line.y[0])/norm
+    
+    return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
     #example_3_2_1_1(True)
@@ -859,8 +1082,9 @@ if __name__ == '__main__':
     #example_4_4(True)
     #example_4_6(True)
     #example_4_7(True)
-    #example_4_8(True)
-    example_4_9_2(True)
+    #example_4_8_1(True)
+    example_4_8_2(True)
+    #example_4_9_2(True)
     #example_4_9_3(True)
     #example_4_9_4(True)
     #example_4_10(True)
@@ -873,3 +1097,7 @@ if __name__ == '__main__':
     #example_5_1(True)
     #example_5_2_1(True)
     #example_5_2_2(True)
+    #example_5_3_1_1(True)
+    #example_5_3_1_2(True)
+    #example_5_3_2(True)
+    #example_5_3_3(True)

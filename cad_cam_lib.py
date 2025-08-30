@@ -12,6 +12,7 @@ from scipy.optimize import fsolve
 from scipy.optimize import fmin
 import traceback
 from matplotlib import pyplot as plt
+from shapely.geometry import Point, Polygon
 
 # グローバル変数
 N_FILLET_INTERPORATE = 20 # フィレット点数
@@ -178,9 +179,9 @@ class Airfoil(Spline):
         self.setIntporatePoints(u_intp)
         
         # 翼形が時計回りか反時計回りかを検出
-        ccw = detectRotation(self.x_intp, self.y_intp)
+        self.ccw = detectRotation(self.x_intp, self.y_intp)
         zero_index = np.argmin(self.x_intp)
-        if ccw == True:
+        if self.ccw == True:
             # 反時計回り      
             self.ux = self.x_intp[:zero_index+1][-1::-1]
             self.uy = self.y_intp[:zero_index+1][-1::-1]
@@ -203,19 +204,34 @@ class Airfoil(Spline):
 
 
 class LineGroup:
-    def __init__(self):
-        self.lines = []
-        self.closed = False
-        self.ccw = False
+    def __init__(self, line_list):
+        self.lines = line_list
+        self.line_type = "LineGroup"
+        self.d = 0
+        self.update()
         
-    def addLine(self, line):
-        self.lines.append(line)
-    
+    def update(self):
+        x = np.array([])
+        y = np.array([])
+        
+        for line in self.lines:
+            x = np.concatenate([x, line.x], 0)
+            y = np.concatenate([y, line.y], 0)
+        
+        self.x = x
+        self.y = y
+        self.st = np.array([x[0], y[0]])
+        self.ed = np.array([x[-1], y[-1]])
+        self.length = getLength(x, y)
+        self.ccw = detectRotation(self.x, self.y)
+        self.closed = checkIsClosed(self.st[0], self.st[1], self.ed[0], self.ed[1])
+        
     def invert(self, num):
         if num < len(self.lines):
             line = self.lines[num]
             invert_line = invert(line)
             self.lines[num] = invert_line
+            self.update()
     
     def invertAll(self):
         i = 0
@@ -224,33 +240,52 @@ class LineGroup:
             invert_line = invert(line)
             self.lines[i] = invert_line
             i += 1
-            
-    def deleteLine(self, num):
-        if num < len(self.lines):
-            self.lines.pop(num)
+        self.lines.reverse()
+        self.update()
             
     def sort(self, start_num):
         connect_lines = sortLines(self.lines, start_num)
         self.lines = connect_lines
+        self.update()
         
-    def checkIsClosed(self):
-        self.sort(0)
-        line_st = self.lines[0]
-        line_ed = self.lines[-1]
-        if norm(line_st.st[0], line_st.st[1], line_ed.ed[0], line_ed.ed[1]) < DIST_NEAR:
-            self.closed = True
-        else:
-            self.closed = False
-        
-    def checkDirection(self):
-        x = np.array([])
-        y = np.array([])
-        
+    def offset(self, d):
+        lines = []
         for line in self.lines:
-            x = np.concatenate([x, line.x], 0)
-            y = np.concatenate([y, line.y], 0)
+            # オフセットする曲線が、自己交差を持ちうる場合、自己交差除去を行う
+            # 自己交差を持ちうるのはスプライン、ポリライン、翼形のみ
+            if (line.line_type == "Spline") or (line.line_type == "Polyline") or \
+                (line.line_type == "Airfoil"):
+                o_line = offset(line, d, True)
+            else:
+                o_line = offset(line, d)
+            lines.append(o_line)
+        self.lines = lines
+        self.update()
+        self.d = d
         
-        self.ccw = detectRotation(x, y)
+    def insertFilet(self):
+        if np.abs(self.d) > DIST_NEAR:
+            lines = [self.lines[0]]
+            i = 1
+            while i < len(self.lines):
+                line_st = self.lines[i-1]
+                line_ed = self.lines[i]
+                sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
+                sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
+                new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.d))
+                lines.append(filet)
+                lines.append(self.lines[i])
+                i += 1
+                
+            line_st = self.lines[-1]
+            line_ed = self.lines[0]
+            sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
+            sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
+            new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.d))
+            lines.append(filet)
+                
+            self.lines = lines
+        self.update()
         
 
 def getM1(x, y):
@@ -451,7 +486,12 @@ def invert(line):
 
     elif line.line_type == "Ellipse":
         return Ellipse(line.a, line.b, line.rot, line.cx, line.cy, not(line.ccw))
-    
+
+    elif line.line_type == "Airfoil":
+        return Airfoil(new_x, new_y)
+
+    elif line.line_type == "LineGroup":
+        return line.invertAll()    
 
 def detectRotation(x, y):
     i = 0
@@ -468,6 +508,13 @@ def detectRotation(x, y):
         ccw = False
     
     return ccw
+
+
+def checkIsClosed(x_st, y_st, x_ed, y_ed):
+    if norm(x_st, y_st, x_ed, y_ed) < DIST_NEAR:
+        return True
+    else:
+        return False
 
 
 
@@ -535,6 +582,9 @@ def move(line, mx, my):
     elif line.line_type == "Ellipse":
         return Ellipse(line.a, line.b, line.rot, line.cx + mx, line.cy + my)
 
+    elif line.line_type == "Airfoil":
+        return Airfoil(new_x, new_y)
+
 
 def rotate(line, sita, rx, ry):
     
@@ -582,12 +632,24 @@ def rotate(line, sita, rx, ry):
     elif line.line_type == "Ellipse":
         return Ellipse(line.a, line.b, line.rot + sita, new_cx, new_cy)
 
+    elif line.line_type == "Airfoil":
+        return Airfoil(new_x, new_y)
 
-def offset(line, d):
+
+def offset(line, d, removeSelfCollision = False):
+    # 半径を変化させてオフセットする円系は、回転方向によるオフセット方向の変化をスプライン等とそろえるため、
+    # 反時計回りの場合は、オフセット方向を反転させる
+    if (line.line_type == "Arc") or (line.line_type == "EllipseArc"):
+        if line.sita_st < line.sita_ed: # 反時計回り
+            d = -d
+    elif (line.line_type == "Circle") or (line.line_type == "Ellipse"):
+        if line.ccw == True: # 反時計回り
+            d = -d
+        
     if (line.line_type == "SLine"):
         new_x = line.x - d*np.sin(line.sita)
         new_y = line.y + d*np.cos(line.sita)
-    else:
+    else: 
         new_x = []
         new_y = []
         
@@ -604,9 +666,13 @@ def offset(line, d):
             new_x.append(x - d*np.sin(sita))
             new_y.append(y + d*np.cos(sita))
             i += 1
-            
-        new_x = np.array(new_x)
-        new_y = np.array(new_y)        
+        
+        if removeSelfCollision == True:
+            new_x, new_y = detectSelfCollision(new_x, new_y)
+        else:
+            new_x = np.array(new_x)
+            new_y = np.array(new_y)
+        
     
     if line.line_type == "Spline":
         return Spline(new_x, new_y)
@@ -628,6 +694,9 @@ def offset(line, d):
 
     elif line.line_type == "Ellipse":
         return Ellipse(line.a+d, line.b+d, line.rot, line.cx, line.cy)
+
+    elif line.line_type == "Airfoil":
+        return Airfoil(new_x, new_y)
 
 
 def scale(line, s, x0, y0):
@@ -660,7 +729,9 @@ def scale(line, s, x0, y0):
 
     elif line.line_type == "Ellipse":
         return Ellipse(line.a*s, line.b*s, line.rot, new_cx, new_cy)
-
+    
+    elif line.line_type == "Airfoil":
+        return Airfoil(new_x, new_y)
 
 
 def getFiletSita(sita_st, sita_ed):
@@ -1042,7 +1113,8 @@ def trim(line, st, ed):
         new_x = np.array([x_st, x_ed])
         new_y = line.f_line(new_x)
         
-    if (line.line_type == "Spline") or (line.line_type == "Polyline") or (line.line_type == "Arc"):
+    if (line.line_type == "Spline") or (line.line_type == "Polyline") or \
+        (line.line_type == "Arc") or (line.line_type == "Airfoil"):
         u_st = st
         u_ed = ed
         
@@ -1095,6 +1167,9 @@ def trim(line, st, ed):
         #楕円をトリムしたオブジェクトは楕円弧で返す
         return EllipseArc(line.a, line.b, line.rot, line.cx, line.cy, sita_st-line.rot, sita_ed-line.rot)
 
+    elif line.line_type == "Airfoil":
+        #翼形をトリムしたオブジェクトはスプラインを返す
+        return Spline(new_x, new_y)
 
 def getTuplePoints(x, y):
     points = []
@@ -1117,7 +1192,8 @@ def getSplineFitPoint(x, y):
 def exportLine2CommandScript(line):
     temp_str = ""
     
-    if (line.line_type == "Spline") or (line.line_type == "Ellipse") or line.line_type == "EllipseArc":
+    if (line.line_type == "Spline") or (line.line_type == "Ellipse") or \
+        (line.line_type == "EllipseArc") or (line.line_type == "Airfoil"):
         i = 0
         temp_str += "_.SPLINE\n"
         while i < len(line.x_intp):
@@ -1249,7 +1325,6 @@ def sortLines(line_list, num_st):
     norm_min = np.inf
     line = line_list[num_st]
     used_num = [num_st]
-    unused_num = []
     x0 = line.ed[0]
     y0 = line.ed[1]
     flag_invert = False
@@ -1275,17 +1350,16 @@ def sortLines(line_list, num_st):
                     else:
                         flag_invert = True
             j += 1
-        if np.abs(norm_min) < DIST_NEAR:
-            used_num.append(num)
-            line = line_list[num]
-            if flag_invert == False:
-                x0 = line.ed[0]
-                y0 = line.ed[1]
-                sorted_lines.append(line)
-            else:
-                x0 = line.st[0]
-                y0 = line.st[1]
-                sorted_lines.append(invert(line))
+        used_num.append(num)
+        line = line_list[num]
+        if flag_invert == False:
+            x0 = line.ed[0]
+            y0 = line.ed[1]
+            sorted_lines.append(line)
+        else:
+            x0 = line.st[0]
+            y0 = line.st[1]
+            sorted_lines.append(invert(line))
         i += 1
         
     return sorted_lines
@@ -1300,8 +1374,7 @@ def detectCloseLines(line_list, num_st):
     y0 = line.ed[1]
     flag_invert = False
     
-    line_group = LineGroup()
-    line_group.addLine(line)
+    lines = [line]
     line_group_list = []
 
     while i < len(line_list)-1:
@@ -1324,25 +1397,140 @@ def detectCloseLines(line_list, num_st):
                         flag_invert = True
             j += 1
         if np.abs(norm_min) > DIST_NEAR:
-            line_group_list.append(line_group)
-            line_group = LineGroup()
+            line_group_list.append(LineGroup(lines))
+            lines = []
         
         line = line_list[num]
         if flag_invert == False:
             x0 = line.ed[0]
             y0 = line.ed[1]
-            line_group.addLine(line)
+            lines.append(line)
         else:
             x0 = line.st[0]
             y0 = line.st[1]
-            line_group.addLine(invert(line))
+            lines.append(invert(line))
                 
         used_num.append(num)
         i += 1
     
-    line_group_list.append(line_group)
+    line_group_list.append(LineGroup(lines))
     
     return line_group_list
 
 
+def getInclusionList(parent_line, child_line):
+    i = 0
+    p_list = []
+    while i < len(parent_line.x):
+        p_list.append((parent_line.x[i], parent_line.y[i]))
+        i += 1
+    parent_polygon = Polygon(p_list)
+    
+    inside_x = []
+    inside_y = []
+    outside_x = []
+    outside_y = []
+    
+    point = Point((child_line.x[0], child_line.y[0]))
+    x = [child_line.x[0]]
+    y = [child_line.y[0]]
+    is_inside = parent_polygon.contains(point)
+    
+    i = 1
+    while i < len(child_line.x):
+        point = Point((child_line.x[i], child_line.y[i]))
+        if (parent_polygon.contains(point) == True) and (is_inside == True):
+            is_inside = True
+            x.append(child_line.x[i])
+            y.append(child_line.y[i])
+        elif (parent_polygon.contains(point) == True) and (is_inside == False):
+            is_inside = True
+            outside_x.append(x)
+            outside_y.append(y)
+            x = [child_line.x[i]]
+            y = [child_line.y[i]]
+        elif (parent_polygon.contains(point) == False) and (is_inside == True):
+            is_inside = False
+            inside_x.append(x)
+            inside_y.append(y)
+            x = [child_line.x[i]]
+            y = [child_line.y[i]]
+        elif (parent_polygon.contains(point) == False) and (is_inside == False):
+            is_inside = False
+            x.append(child_line.x[i])
+            y.append(child_line.y[i])          
+        i += 1
+    
+    if is_inside == True:
+        inside_x.append(x)
+        inside_y.append(y)
+    else:
+        outside_x.append(x)
+        outside_y.append(y)        
+    
+    return inside_x, inside_y, outside_x, outside_y
+        
+ 
+def checkInclusion(parent_line, child_line):
+    inside_x, inside_y, outside_x, outside_y = getInclusionList(parent_line, child_line)
+    if len(inside_x) == 0:
+        # child_lineはparent_lineの外
+        return 0
+    elif len(outside_x) == 0:
+        # child_lineはparent_lineの内
+        return 1
+    else:
+        # child_lineはparent_lineのと交差
+        return 2
+
+# https://qiita.com/wihan23/items/03efd7cd40dfec96a987
+def max_min_cross(p1, p2, p3, p4):
+    min_ab, max_ab = min(p1, p2), max(p1, p2)
+    min_cd, max_cd = min(p3, p4), max(p3, p4)
+
+    if min_ab > max_cd or max_ab < min_cd:
+        return False
+
+    return True
+
+# https://qiita.com/wihan23/items/03efd7cd40dfec96a987
+def cross_judge(a, b, c, d):
+    # x座標による判定
+    if not max_min_cross(a[0], b[0], c[0], d[0]):
+        return False
+
+    # y座標による判定
+    if not max_min_cross(a[1], b[1], c[1], d[1]):
+        return False
+
+    tc1 = (a[0] - b[0]) * (c[1] - a[1]) + (a[1] - b[1]) * (a[0] - c[0])
+    tc2 = (a[0] - b[0]) * (d[1] - a[1]) + (a[1] - b[1]) * (a[0] - d[0])
+    td1 = (c[0] - d[0]) * (a[1] - c[1]) + (c[1] - d[1]) * (c[0] - a[0])
+    td2 = (c[0] - d[0]) * (b[1] - c[1]) + (c[1] - d[1]) * (c[0] - b[0])
+    return tc1 * tc2 <= 0 and td1 * td2 <= 0
+
+
+def detectSelfCollision(x, y):
+    new_x = [x[0]]
+    new_y = [y[0]]
+    
+    i = 1
+    while i < len(x):
+        j = i+1
+        p1 = [x[i-1], y[i-1]]
+        p2 = [x[i], y[i]]
+        while j < len(x)-3:
+            p3 = [x[j], y[j]]
+            p4 = [x[j+1], y[j+1]]
+            if cross_judge(p1, p2, p3, p4) == True:
+                cx, cy = getCrossPointFromPoint(p1[0], p1[1], p3[0], p3[1], p2[0], p2[1], p4[0], p4[1])
+                new_x.append(cx)
+                new_y.append(cy)             
+                i = j+1
+            j += 1
+        new_x.append(x[i])
+        new_y.append(y[i])
+        i += 1
+    
+    return np.array(new_x), np.array(new_y)
 
