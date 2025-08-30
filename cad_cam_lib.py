@@ -16,11 +16,14 @@ from matplotlib import pyplot as plt
 # グローバル変数
 N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
+N_AIRFOIL = 500 # 翼形のデータ数
+N_AIRFOIL_INTERPOLATE = 1000 # 翼形補完時の補完点数
 DELTA_U = 0.01 # ベクトル算出用のu差分
 DIST_NEAR = 0.00001 # 近傍点の判定距離
 DXF_LINETYPES_DEFAULT = "ByLayer" #dxfファイルのデフォルト線種
 DXF_COLOR_DEFAULT = 0 # dxfファイルのデフォルト線色。AutoCAD Color Index (ACI)で指定
 DXF_WIDTH_DEFAULT = 2 # dxfファイルのデフォルト線幅。
+DXF_USE_SPLINE = True # dxfの出力でスプラインをスプラインとして出力する
 
 
 class Line:
@@ -163,8 +166,91 @@ class Ellipse(EllipseArc):
 
 class Airfoil(Spline):
     def __init__(self, x, y):
-        super().__init__(x, y, "Airfoil")
+        # 重複した座標点を削除
+        temp_x, temp_y = removeSamePoint(x, y)
         
+        # スプラインを初期化
+        super().__init__(temp_x, temp_y)
+        self.line_type = "Airfoil"
+        
+        u_zero = self.u[np.argmin(self.x)]
+        u_intp = getUCosine(N_AIRFOIL_INTERPOLATE, u_zero)
+        self.setIntporatePoints(u_intp)
+        
+        # 翼形が時計回りか反時計回りかを検出
+        ccw = detectRotation(self.x_intp, self.y_intp)
+        zero_index = np.argmin(self.x_intp)
+        if ccw == True:
+            # 反時計回り      
+            self.ux = self.x_intp[:zero_index+1][-1::-1]
+            self.uy = self.y_intp[:zero_index+1][-1::-1]
+            self.lx = self.x_intp[zero_index:]
+            self.ly = self.y_intp[zero_index:]
+        else:
+            # 時計回り
+            self.lx = self.x_intp[:zero_index+1][-1::-1]
+            self.ly = self.y_intp[:zero_index+1][-1::-1]
+            self.ux = self.x_intp[zero_index:]
+            self.uy = self.y_intp[zero_index:]           
+        
+        self.xmin = max(min(self.ux), min(self.lx))
+        self.xmax = min(max(self.ux), max(self.lx))
+        self.f_upper = intp.interp1d(self.ux, self.uy, kind = 'cubic')
+        self.f_lower = intp.interp1d(self.lx, self.ly, kind = 'cubic')
+        cx = getXCosine(self.xmin, self.xmax, int(N_AIRFOIL_INTERPOLATE/2))
+        cy = (self.f_upper(cx) + self.f_lower(cx))/2.0
+        self.f_center = intp.interp1d(cx, cy, kind = 'cubic')
+
+
+class LineGroup:
+    def __init__(self):
+        self.lines = []
+        self.closed = False
+        self.ccw = False
+        
+    def addLine(self, line):
+        self.lines.append(line)
+    
+    def invert(self, num):
+        if num < len(self.lines):
+            line = self.lines[num]
+            invert_line = invert(line)
+            self.lines[num] = invert_line
+    
+    def invertAll(self):
+        i = 0
+        while i < len(self.lines):
+            line = self.lines[i]
+            invert_line = invert(line)
+            self.lines[i] = invert_line
+            i += 1
+            
+    def deleteLine(self, num):
+        if num < len(self.lines):
+            self.lines.pop(num)
+            
+    def sort(self, start_num):
+        connect_lines = sortLines(self.lines, start_num)
+        self.lines = connect_lines
+        
+    def checkIsClosed(self):
+        self.sort(0)
+        line_st = self.lines[0]
+        line_ed = self.lines[-1]
+        if norm(line_st.st[0], line_st.st[1], line_ed.ed[0], line_ed.ed[1]) < DIST_NEAR:
+            self.closed = True
+        else:
+            self.closed = False
+        
+    def checkDirection(self):
+        x = np.array([])
+        y = np.array([])
+        
+        for line in self.lines:
+            x = np.concatenate([x, line.x], 0)
+            y = np.concatenate([y, line.y], 0)
+        
+        self.ccw = detectRotation(x, y)
         
 
 def getM1(x, y):
@@ -184,6 +270,7 @@ def getM1(x, y):
     
     return np.array(m1)
 
+
 def getSita1(x, y):
     i = 0
     sita1 = []
@@ -196,6 +283,7 @@ def getSita1(x, y):
     sita1.append(temp_sita1)
     
     return np.array(sita1)
+
 
 def getM2(x, y):
     i = 0
@@ -214,6 +302,7 @@ def getM2(x, y):
     
     return np.array(m2)
 
+
 def getSita2(x, y):
     sita1 = getSita1(x, y)
     sita2 = sita1 + np.pi/2
@@ -222,6 +311,7 @@ def getSita2(x, y):
 
 def norm(x1, y1, x2, y2):
     return np.sqrt((x2-x1)**2 + (y2-y1)**2)
+
 
 def getLength(x, y):
     i = 0
@@ -240,7 +330,7 @@ def getArea(x, y):
             temp_s += x[i]*y[i+1] - x[i+1]*y[i]
             i += 1
         temp_s += x[-1]*y[0] - x[0]*y[-1]
-        S = 0.5 * temp_s
+        S = 0.5 * np.abs(temp_s)
         return S
     else:
         return 0
@@ -262,6 +352,18 @@ def removeSamePoint(x, y):
     return np.array(new_x), np.array(new_y)
 
 
+def getNormalizedSumArray(array):
+    i = 0
+    sum_array = [0]
+    temp_sum = 0
+    while i < len(array)-1:
+        temp_sum += np.abs(array[i+1] - array[i])
+        sum_array.append(temp_sum)
+        i += 1
+    sum_array /= temp_sum
+    return sum_array
+
+
 def getCrossPointFromPoint(p1_x, p1_y, p2_x, p2_y, p3_x, p3_y, p4_x, p4_y):
     # https://imagingsolution.blog.fc2.com/blog-entry-137.html
     s1 = ((p4_x - p2_x) * (p1_y - p2_y) - (p4_y - p2_y) * (p1_x - p2_x)) / 2.0
@@ -272,11 +374,13 @@ def getCrossPointFromPoint(p1_x, p1_y, p2_x, p2_y, p3_x, p3_y, p4_x, p4_y):
     
     return c1_x, c1_y
 
+
 def getCrossPointFromLines(a, b, c, d):
     # https://mathwords.net/nityokusenkoten
     c1_x = (d-b)/(a-c)
     c1_y = (a*d - b*c)/(a-c)
     return c1_x, c1_y
+
 
 def getCrossPointFromCurveLine(line_func, curve_func, u0):
     def solver(u):
@@ -349,13 +453,61 @@ def invert(line):
         return Ellipse(line.a, line.b, line.rot, line.cx, line.cy, not(line.ccw))
     
 
-def importFromText(fileName, lineType):
-    text_file = np.genfromtxt(fileName, delimiter = ",", skip_header = 1, dtype = float)
+def detectRotation(x, y):
+    i = 0
+    temp_s = 0
+
+    while i < len(x) - 1:
+        temp_s += x[i]*y[i+1] - x[i+1]*y[i]
+        i += 1
+    temp_s += x[-1]*y[0] - x[0]*y[-1]
+    
+    if temp_s > 0:
+        ccw = True
+    else:
+        ccw = False
+    
+    return ccw
+
+
+
+def getUCosine(num, u_c):
+    sita1 = np.linspace(0, np.pi/2, int(num/2))
+    sita2 = np.linspace(np.pi/2, 0, int(num/2)+1)
+    u1 = np.sin(sita1) * u_c
+    u2 = 1 - np.sin(sita2) * (1-u_c)
+    
+    u = np.concatenate([u1, u2[1:]], 0)
+    
+    return u
+
+
+def getXCosine(xmin, xmax, num):
+    sita = np.linspace(0, np.pi/2, num)
+    x = (xmax-xmin)*(1-np.cos(sita)) + xmin
+    return x
+
+    
+def mixAirfoil(airfoil1, airfoil2, ratio):
+    xmin = max(airfoil1.xmin, airfoil2.xmin)
+    xmax = min(airfoil1.xmax, airfoil2.xmax)
+    x = getXCosine(xmin, xmax, int(N_AIRFOIL/2))
+    uy = ratio*airfoil1.f_upper(x) + (1-ratio)*airfoil2.f_upper(x)
+    ly = ratio*airfoil1.f_lower(x) + (1-ratio)*airfoil2.f_lower(x)
+    
+    new_x = np.concatenate([x[-1::-1], x], 0)
+    new_y = np.concatenate([uy[-1::-1], ly], 0)
+    
+    new_airfoil = Airfoil(new_x, new_y)
+    
+    return new_airfoil
+
+
+def importFromText(fileName, delimiter, skip_header):
+    text_file = np.genfromtxt(fileName, delimiter = delimiter, skip_header = skip_header, dtype = float)
     temp_x = text_file[:,0]
     temp_y = text_file[:,1]
-    x, y = removeSamePoint(temp_x, temp_y)
-    imported_line = Line(x, y, lineType)
-    return imported_line
+    return temp_x, temp_y
 
 
 def move(line, mx, my):
@@ -382,6 +534,7 @@ def move(line, mx, my):
 
     elif line.line_type == "Ellipse":
         return Ellipse(line.a, line.b, line.rot, line.cx + mx, line.cy + my)
+
 
 def rotate(line, sita, rx, ry):
     
@@ -526,7 +679,7 @@ def getFiletSita(sita_st, sita_ed):
         return sita_st, sita_ed +2*np.pi,
 
 
-def filetLines(l0, l1, r):
+def filetLines(l0, l1, r, join=False):
     try:
         # l0とl1のなす角sitaを内積により求める
         # https://w3e.kanazawa-it.ac.jp/math/category/vector/henkan-tex.cgi?target=/math/category/vector/naiseki-wo-fukumu-kihonsiki.html&pcview=2
@@ -571,7 +724,14 @@ def filetLines(l0, l1, r):
         # l0とl1の端点をフィレットに一致するように調整
         new_l0 = SLine([l0.x[0], p1_x], [l0.y[0], p1_y])
         new_l1 = SLine([p2_x, l1.x[1]], [p2_y, l1.y[1]])
-              
+        
+        if join == True:
+            x = np.append(l0.x[0], filet.x)
+            x = np.append(x, l1.x[1])
+            y = np.append(l0.y[0], filet.y)
+            y = np.append(y, l1.y[1])
+            filet = Spline(x, y)
+
     except:
         traceback.print_exc()
         pass
@@ -613,6 +773,7 @@ def ellipseAB(x1, y1, x2, y2, ox, oy):
     B = 1/np.sqrt((a-c)/detA)
     
     return A, B
+
 
 def filetLineCurve(line, spline, r, mode, u0):
     u_root, cx, cy = getCrossPointFromCurveLine(line.f_line, spline.f_curve, u0)
@@ -741,6 +902,7 @@ def filetLineCurve(line, spline, r, mode, u0):
         pass
     
     return t_line, t_spline, filet
+
 
 def filetCurves(spline1, spline2, r, mode, u0, s0):
     u_root, s_root, cx, cy = getCrossPointFromCurves(spline1.f_curve, spline2.f_curve, u0, s0)
@@ -941,8 +1103,58 @@ def getTuplePoints(x, y):
         points.append((x[i], y[i]))
         i += 1
     return tuple(points)
+
+
+def getSplineFitPoint(x, y):
+    points = []
+    i = 0
+    while i < len(x):
+        points.append((x[i], y[i], 0))
+        i += 1
+    return tuple(points)    
+
+
+def exportLine2CommandScript(line):
+    temp_str = ""
     
+    if (line.line_type == "Spline") or (line.line_type == "Ellipse") or line.line_type == "EllipseArc":
+        i = 0
+        temp_str += "_.SPLINE\n"
+        while i < len(line.x_intp):
+            temp_str += "%s,%s\n"%(line.x_intp[i], line.y_intp[i])
+            i += 1
+        temp_str += "\n\n\n"
+            
+    elif line.line_type == "Polyine":
+        i = 0
+        temp_str += "_.PLINE\n"
+        while i < len(line.x_intp):
+            temp_str += "%s,%s\n"%(line.x_intp[i], line.y_intp[i])
+            i += 1
+        temp_str += "\n\n"
+        
+    elif line.line_type == "SLine":
+        temp_str += "_.LINE\n"
+        temp_str += "%s,%s\n"%(line.st[0], line.st[1])
+        temp_str += "%s,%s\n"%(line.ed[0], line.ed[1])
+        temp_str += "\n"
     
+    elif line.line_type == "Arc":
+        temp_str += "_.ARC\n"
+        temp_str += "C\n"
+        temp_str += "%s,%s\n"%(line.cx, line.cy)
+        temp_str += "%s,%s\n"%(line.st[0], line.st[1])
+        temp_str += "A\n"
+        temp_str += "%s\n"%np.degrees((line.sita_ed-line.sita_st))
+        
+    elif line.line_type == "Circle":
+        temp_str += "_.CIRCLE\n"
+        temp_str += "%s,%s\n"%(line.cx, line.cy)
+        temp_str += "%s\n"%(line.r)
+    
+    return temp_str 
+
+
 def exportLine2ModeWorkSpace(msp, layer, line, \
                              color=DXF_COLOR_DEFAULT, \
                              linetypes=DXF_LINETYPES_DEFAULT, \
@@ -954,11 +1166,21 @@ def exportLine2ModeWorkSpace(msp, layer, line, \
              'linetype': linetypes #線種
             }
     
-    if (line.line_type == "Spline") or (line.line_type == "Polyline") or \
-        (line.line_type == "Ellipse") or line.line_type == "EllipseArc":
-        # スプライン、楕円、楕円弧はezdxfにはないので、ポリラインで描画する
+    if (line.line_type == "Spline") or (line.line_type == "Ellipse") or line.line_type == "EllipseArc":
+        # 楕円、楕円弧はezdxfにはないので、ポリラインで描画する
+        if DXF_USE_SPLINE == True:
+            # スプラインをスプラインで出力する
+            points = getSplineFitPoint(line.x_intp, line.y_intp)
+            msp.add_spline(points, dxfattribs = attr)
+            
+        else:
+            # スプラインはサポートされていない場合は、ポリラインとして出力する
+            points = getTuplePoints(line.x_intp, line.y_intp)
+            msp.add_lwpolyline(points, format="xy", close=False, dxfattribs = attr)
+
+    elif line.line_type == "Polyine":
         points = getTuplePoints(line.x_intp, line.y_intp)
-        msp.add_lwpolyline(points, format="xy", close=False, dxfattribs = attr)
+        msp.add_lwpolyline(points, format="xy", close=False, dxfattribs = attr) 
     
     elif line.line_type == "SLine":
         msp.add_line(start=tuple(line.st), end=tuple(line.ed), dxfattribs = attr)
@@ -972,7 +1194,155 @@ def exportLine2ModeWorkSpace(msp, layer, line, \
         msp.add_circle(center = (line.cx, line.cy), radius = line.r, dxfattribs = attr)
 
     
+def importLinesFromDxf(msp, dxf_object_type):
+    line_objs = msp.query(dxf_object_type)
+    line_list = []
     
+    if not(len(line_objs) == 0):
+        if dxf_object_type == 'LINE':
+            for line_obj in line_objs:
+                temp_line = []
+                temp_line.append(line_obj.dxf.start)
+                temp_line.append(line_obj.dxf.end)
+                temp_line = np.array(temp_line)[:,0:2]
+                if norm(temp_line[0,0],temp_line[0,1],temp_line[1,0],temp_line[1,1]) != 0:
+                    line = SLine(temp_line[:,0], temp_line[:,1])
+                    line_list.append(line)
+                        
+        elif dxf_object_type == 'SPLINE':
+            for line_obj in line_objs:
+                control_points = np.array(line_obj.control_points)[:]
+                fit_points = np.array(line_obj.fit_points)[:]
+                if not(len(control_points) == 0):
+                    spline = Spline(control_points[:,0], control_points[:,1]) 
+                    line_list.append(spline)
+                elif not(len(fit_points) == 0):
+                    spline = Spline(fit_points[:,0], fit_points[:,1]) 
+                    line_list.append(spline)                    
+                
+        elif dxf_object_type == 'ARC':
+            for line_obj in line_objs:
+                r = line_obj.dxf.radius
+                cx  = line_obj.dxf.center[0]
+                cy  = line_obj.dxf.center[1]
+                sita_st = np.radians(line_obj.dxf.start_angle)
+                sita_ed = np.radians(line_obj.dxf.end_angle)
+                arc = Arc(r, cx, cy, sita_st, sita_ed)
+                line_list.append(arc)  
+
+            
+        elif dxf_object_type == 'LWPOLYLINE':
+                control_points = np.array(line_obj.control_points)[:]
+                fit_points = np.array(line_obj.fit_points)[:]
+                if not(len(control_points) == 0):
+                    polyline = Polyline(control_points[:,0], control_points[:,1]) 
+                    line_list.append(polyline)
+                elif not(len(fit_points) == 0):
+                    polyline = Polyline(fit_points[:,0], fit_points[:,1]) 
+                    line_list.append(polyline)     
+
+        return line_list     
+
+
+def sortLines(line_list, num_st):
+    i = 0
+    norm_min = np.inf
+    line = line_list[num_st]
+    used_num = [num_st]
+    unused_num = []
+    x0 = line.ed[0]
+    y0 = line.ed[1]
+    flag_invert = False
+    
+    sorted_lines = [line]
+
+    while i < len(line_list)-1:
+        norm_min = np.inf
+        j = 0
+        while j < len(line_list):          
+            if j in used_num:
+                pass
+            else:
+                line = line_list[j]
+                norm_st = norm(x0, y0, line.st[0], line.st[1])
+                norm_ed = norm(x0, y0, line.ed[0], line.ed[1])
+
+                if min(norm_st, norm_ed) < norm_min:
+                    num = j
+                    norm_min = min(norm_st, norm_ed)
+                    if norm_st < norm_ed:
+                        flag_invert = False
+                    else:
+                        flag_invert = True
+            j += 1
+        if np.abs(norm_min) < DIST_NEAR:
+            used_num.append(num)
+            line = line_list[num]
+            if flag_invert == False:
+                x0 = line.ed[0]
+                y0 = line.ed[1]
+                sorted_lines.append(line)
+            else:
+                x0 = line.st[0]
+                y0 = line.st[1]
+                sorted_lines.append(invert(line))
+        i += 1
+        
+    return sorted_lines
+
+
+def detectCloseLines(line_list, num_st):
+    i = 0
+    norm_min = np.inf
+    line = line_list[num_st]
+    used_num = [num_st]
+    x0 = line.ed[0]
+    y0 = line.ed[1]
+    flag_invert = False
+    
+    line_group = LineGroup()
+    line_group.addLine(line)
+    line_group_list = []
+
+    while i < len(line_list)-1:
+        norm_min = np.inf
+        j = 0
+        while j < len(line_list):          
+            if j in used_num:
+                pass
+            else:
+                line = line_list[j]
+                norm_st = norm(x0, y0, line.st[0], line.st[1])
+                norm_ed = norm(x0, y0, line.ed[0], line.ed[1])
+
+                if min(norm_st, norm_ed) < norm_min:
+                    num = j
+                    norm_min = min(norm_st, norm_ed)
+                    if norm_st < norm_ed:
+                        flag_invert = False
+                    else:
+                        flag_invert = True
+            j += 1
+        if np.abs(norm_min) > DIST_NEAR:
+            line_group_list.append(line_group)
+            line_group = LineGroup()
+        
+        line = line_list[num]
+        if flag_invert == False:
+            x0 = line.ed[0]
+            y0 = line.ed[1]
+            line_group.addLine(line)
+        else:
+            x0 = line.st[0]
+            y0 = line.st[1]
+            line_group.addLine(invert(line))
+                
+        used_num.append(num)
+        i += 1
+    
+    line_group_list.append(line_group)
+    
+    return line_group_list
 
 
 

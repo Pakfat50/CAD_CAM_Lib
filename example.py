@@ -6,7 +6,6 @@ Created on Sun Aug 17 13:36:54 2025
 """
 
 # 外部ライブラリ
-import cad_cam_lib as clib
 from matplotlib import pyplot as plt
 import numpy as np
 import ezdxf as ez
@@ -16,7 +15,7 @@ from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
 
 # 内部ライブラリ
 import airfoilData as af
-
+import cad_cam_lib as clib
 
 def example_3_2_1_1(plotGraph):
     #座標点変化量による接線の傾き算出
@@ -263,9 +262,83 @@ def example_3_7(plotGraph):
         plt.axis("equal")
         plt.show()        
 
+
+def example_3_9_1(plotGraph):
+    # 翼形座標データを読み込み
+    #x, y = clib.importFromText("foils/naca2412.dat", ' ', 0)
+    x, y = clib.importFromText("foils/dae51.dat", '\t', 0)    
+    
+    # 翼形クラスのインスタンスを作成
+    airfoil = clib.Airfoil(x, y)
+    
+    # x軸方向のコサイン補完点列を作成
+    x_func = clib.getXCosine(airfoil.xmin, airfoil.xmax, 300)
+    uy = airfoil.f_upper(x_func)
+    ly = airfoil.f_lower(x_func)
+    
+    # グラフを描画
+    if plotGraph == True:
+        plt.title("Example of 3.9.1")
+        plt.plot(airfoil.x_intp, airfoil.y_intp, "bo-")
+        plt.plot(x_func, uy, "k--")
+        plt.plot(x_func, ly, "g--")
+        plt.plot(x, y, "ro")
+        plt.axis("equal")
+        plt.show()    
+
+
+def example_3_9_2(plotGraph):
+    # 翼形座標データを読み込み
+    x, y = clib.importFromText("foils/naca2412.dat", ' ', 0)
+    #x, y = clib.importFromText("foils/dae51.dat", '\t', 0)    
+    
+    # 翼形クラスのインスタンスを作成
+    airfoil = clib.Airfoil(x, y)
+    
+    # x軸方向のコサイン補完点列を作成
+    x_func = clib.getXCosine(airfoil.xmin, airfoil.xmax, 300)
+    
+    # 中心線のy座標を取得
+    cy = airfoil.f_center(x_func)
+    
+    # グラフを描画
+    if plotGraph == True:
+        plt.title("Example of 3.9.2")
+        plt.plot(airfoil.x_intp, airfoil.y_intp, "b")
+        plt.plot(x_func, cy, "g")
+        plt.axis("equal")
+        plt.show()    
+
+
+def example_3_9_3(plotGraph):
+    # DAE51, NACA2412、およびそれらをXFLRで20%混合した座標点を読み込み
+    x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 0)
+    x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 0)
+    xm, ym = clib.importFromText("foils/dae_naca.dat", '    ', 0)
+    
+    # DAE51とNACA2412の翼形クラスのインスタンスを作成
+    dae51 = clib.Airfoil(x1, y1)
+    naca2412 = clib.Airfoil(x2, y2)
+    
+    # DAE51とNACA2412を20%混合した座標点を作成
+    mix_airfoil = clib.mixAirfoil(dae51, naca2412, 0.2) 
+
+    # グラフを描画
+    if plotGraph == True:
+        plt.title("Example of 3.9.3")
+        plt.plot(dae51.x_intp, dae51.y_intp, "g--")
+        plt.plot(naca2412.x_intp, naca2412.y_intp, "b--")
+        plt.plot(mix_airfoil.x_intp, mix_airfoil.y_intp, "r")
+        plt.plot(xm, ym, "ro")
+        plt.axis("equal")
+        plt.legend(["DAE51", "NACA2412", "Mix", "XFLR"])
+        plt.show()    
+    
+
 def example_4_1(plotGraph):
     # ファイルから座標点列を読み込み
-    line = clib.importFromText("NACA2412.csv", "spline")
+    x, y  = clib.importFromText("NACA2412.csv", ",", 1)
+    line = clib.Spline(x,y)
     
     # グラフを描画
     if plotGraph == True:
@@ -419,6 +492,8 @@ def example_4_9_2(plotGraph):
     l1 = clib.SLine([-1,-2], [5.5,6])
     
     new_l0, new_l1, filet = clib.filetLines(l0, l1, 0.2)
+    new_l0_j, new_l1_j, filet_j = clib.filetLines(l0, l1, 0.2, True)
+    print(filet_j.x)
     
     #グラフを描画
     if plotGraph == True:    
@@ -428,6 +503,7 @@ def example_4_9_2(plotGraph):
         plt.plot(filet.x, filet.y, "ro-")
         plt.plot(new_l0.x, new_l0.y, "ro--")
         plt.plot(new_l1.x, new_l1.y, "ro--")
+        plt.plot(filet_j.x, filet_j.y, "k")
         plt.axis("equal")
 
 
@@ -587,6 +663,39 @@ def example_4_11_4(plotGraph):
         plt.axis("equal")
         plt.show()       
         
+def example_4_12_1(plotGraph):
+    # 直線とスプラインと円弧と楕円を作成
+    line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
+    spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    arc = clib.Arc(1, -0.5, -0.5, np.radians(20), np.radians(60))
+    ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
+    
+    # スクリプト出力用の文字列を作成
+    scr = ""
+    scr += clib.exportLine2CommandScript(line)
+    scr += clib.exportLine2CommandScript(spline)
+    scr += clib.exportLine2CommandScript(arc)
+    scr += clib.exportLine2CommandScript(ellipse)
+    
+    # スクリプト出力用の文字列を確認
+    print(scr)
+    
+    # スクリプトファイル（.scr）として保存
+    f = open("example_4_12_1.scr", "w")
+    f.writelines(scr)
+    f.close()
+    
+    # グラフを描画
+    if plotGraph == True:
+        plt.title("Example of 4.11.2")
+        plt.plot(line.x, line.y, "b")
+        plt.plot(spline.x, spline.y, "b")
+        plt.plot(arc.x, arc.y, "b")
+        plt.plot(ellipse.x, ellipse.y, "b")
+        plt.axis("equal")
+        plt.show()          
+    
+
 
 def example_4_12_2(plotGraph):
     # ezdxfのモデルワークスペースオブジェクトを生成
@@ -598,7 +707,6 @@ def example_4_12_2(plotGraph):
             'lineweight':2, #線幅
             'linetype': 'Continuous' #線種
     }
-    
     doc.layers.new(name="layer0",  dxfattribs = attr) # レイヤーを追加
     
     # 直線とスプラインと楕円を作成
@@ -628,6 +736,110 @@ def example_4_12_2(plotGraph):
         fig.show()        
 
 
+def example_5_1(plotGraph):
+    #doc = ez.readfile("test.dxf")
+    doc = ez.readfile("example_4_12_2.dxf")
+    msp = doc.modelspace()
+    lines = clib.importLinesFromDxf(msp, "LINE")
+    splines = clib.importLinesFromDxf(msp, "SPLINE")
+    
+    if plotGraph == True:
+        for line in lines:
+            plt.plot(line.x, line.y, "b")
+        for spline in splines:
+            plt.plot(spline.x, spline.y, "r")
+        plt.axis("equal")
+    
+
+def example_5_2_1(plotGraph):
+    doc = ez.readfile("test.dxf")
+    #doc = ez.readfile("example_4_12_2.dxf")
+    msp = doc.modelspace()
+    lines = clib.importLinesFromDxf(msp, "LINE")
+    splines = clib.importLinesFromDxf(msp, "SPLINE")
+    
+    all_lines = lines + splines
+    line_group_list = clib.detectCloseLines(all_lines, 2)
+    
+    i = 0
+    while i < len(line_group_list):
+        line_group = line_group_list[i]
+        line_group.checkIsClosed()
+        if line_group.closed == True:
+            print("line group No.%s is closed"%i)
+        else:
+            print("line group No.%s is opened"%i)
+        i += 1
+    
+    colors = ["b", "g", "r", "c", "m", "y", "k", "b--", "g--"]
+    colors_st = ["bo", "go", "ro", "co", "mo", "yo", "ko", "bo", "go"]
+
+    if plotGraph == True:
+        i = 0
+        while i < len(line_group_list):
+            line_group = line_group_list[i]
+            init_line = line_group_list[i].lines[0]
+            plt.plot(init_line.st[0], init_line.st[1], colors_st[i])                
+            for line in line_group.lines:
+                plt.plot(line.x, line.y, colors[i])
+                norm = clib.norm(line.x[0], line.y[0], line.x[1], line.y[1])
+                x1 = (line.x[1]-line.x[0])/norm
+                y1 = (line.y[1]-line.y[0])/norm
+                    
+                plt.quiver(line.x[0], line.y[0], x1, y1, \
+                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+            i += 1
+        plt.axis("equal")    
+    return line_group_list
+
+
+def example_5_2_2(plotGraph):
+    line_group_list = example_5_2_1(False)
+    
+    i = 0
+    while i < len(line_group_list):
+        line_group = line_group_list[i]
+        line_group.checkDirection()
+        if line_group.ccw == True:
+            print("line group No.%s direction is CCW"%i)
+        else:
+            print("line group No.%s direction is CW"%i)
+        i += 1
+    
+    i = 0
+    while i < len(line_group_list):
+        line_group = line_group_list[i]
+        if line_group.ccw == False:
+            line_group.invertAll()
+            line_group.checkDirection()
+            print("line group No.%s chenge direction to CCW"%i)
+        if line_group.ccw == True:
+            print("line group No.%s direction is CCW"%i)
+        else:
+            print("line group No.%s direction is CW"%i)
+        i += 1
+        
+    colors = ["b", "g", "r", "c", "m", "y", "k", "b--", "g--"]
+    colors_st = ["bo", "go", "ro", "co", "mo", "yo", "ko", "bo", "go"]
+    
+    if plotGraph == True:
+        i = 0
+        while i < len(line_group_list):
+            line_group = line_group_list[i]
+            init_line = line_group_list[i].lines[0]
+            plt.plot(init_line.st[0], init_line.st[1], colors_st[i])                
+            for line in line_group.lines:
+                plt.plot(line.x, line.y, colors[i])
+                norm = clib.norm(line.x[0], line.y[0], line.x[1], line.y[1])
+                x1 = (line.x[1]-line.x[0])/norm
+                y1 = (line.y[1]-line.y[0])/norm
+                    
+                plt.quiver(line.x[0], line.y[0], x1, y1, \
+                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+            i += 1
+        plt.axis("equal") 
+    
+
 if __name__ == '__main__':
     #example_3_2_1_1(True)
     #example_3_2_2_1(True)
@@ -638,6 +850,9 @@ if __name__ == '__main__':
     #example_3_6_1_2(True)
     #example_3_6_1_3(True)
     #example_3_7(True)
+    #example_3_9_1(True)
+    #example_3_9_2(True)
+    #example_3_9_3(True)
     #example_4_1(True)
     #example_4_2(True)
     #example_4_3(True)
@@ -645,7 +860,7 @@ if __name__ == '__main__':
     #example_4_6(True)
     #example_4_7(True)
     #example_4_8(True)
-    #example_4_9_2(True)
+    example_4_9_2(True)
     #example_4_9_3(True)
     #example_4_9_4(True)
     #example_4_10(True)
@@ -653,5 +868,8 @@ if __name__ == '__main__':
     #example_4_11_2(True)
     #example_4_11_3(True)
     #example_4_11_4(True)
-    example_4_12_2(True)
-    
+    #example_4_12_1(True)
+    #example_4_12_2(True)
+    #example_5_1(True)
+    #example_5_2_1(True)
+    #example_5_2_2(True)
