@@ -315,7 +315,7 @@ def example_3_9_3(plotGraph):
     # DAE51, NACA2412、およびそれらをXFLRで20%混合した座標点を読み込み
     x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 0)
     x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 0)
-    xm, ym = clib.importFromText("foils/dae_naca.dat", '    ', 0)
+    xm, ym = clib.importFromText("foils/dae_naca_poor.dat", '    ', 0)
     
     # DAE51とNACA2412の翼形クラスのインスタンスを作成
     dae51 = clib.Airfoil(x1, y1)
@@ -323,16 +323,20 @@ def example_3_9_3(plotGraph):
     
     # DAE51とNACA2412を20%混合した座標点を作成
     mix_airfoil = clib.mixAirfoil(dae51, naca2412, 0.2) 
+    mix_airfoil_xflr = clib.mixAirfoilXFLR(dae51, naca2412, 0.2) 
 
     # グラフを描画
     if plotGraph == True:
         plt.title("Example of 3.9.3")
         plt.plot(dae51.x_intp, dae51.y_intp, "g--")
         plt.plot(naca2412.x_intp, naca2412.y_intp, "b--")
-        plt.plot(mix_airfoil.x_intp, mix_airfoil.y_intp, "r")
+        plt.plot(mix_airfoil.x_intp, mix_airfoil.y_intp, "c")
+        plt.plot(mix_airfoil_xflr.x_intp, mix_airfoil_xflr.y_intp, "r--")
         plt.plot(xm, ym, "ro")
+        plt.plot(x1, y1, "go")
+        plt.plot(x2, y2, "bo")
         plt.axis("equal")
-        plt.legend(["DAE51", "NACA2412", "Mix", "XFLR"])
+        plt.legend(["DAE51", "NACA2412", "Mix(by X)", "Mix(by Pram)","XFLR Mix"])
         plt.show()    
     
 
@@ -1093,7 +1097,7 @@ if __name__ == '__main__':
     #example_3_7(True)
     #example_3_9_1(True)
     #example_3_9_2(True)
-    #example_3_9_3(True)
+    example_3_9_3(True)
     #example_4_1(True)
     #example_4_2(True)
     #example_4_3(True)
@@ -1101,7 +1105,7 @@ if __name__ == '__main__':
     #example_4_6(True)
     #example_4_7(True)
     #example_4_8_1(True)
-    example_4_8_2(True)
+    #example_4_8_2(True)
     #example_4_9_2(True)
     #example_4_9_3(True)
     #example_4_9_4(True)

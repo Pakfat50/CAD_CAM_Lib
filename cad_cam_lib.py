@@ -208,6 +208,7 @@ class Airfoil(Spline):
         # 翼形が時計回りか反時計回りかを検出
         self.ccw = detectRotation(self.x_intp, self.y_intp)
         zero_index = np.argmin(self.x_intp)
+        self.ule = u_intp[zero_index]
         if self.ccw == True:
             # 反時計回り      
             self.ux = self.x_intp[:zero_index+1][-1::-1]
@@ -582,6 +583,59 @@ def mixAirfoil(airfoil1, airfoil2, ratio):
     new_airfoil = Airfoil(new_x, new_y)
     
     return new_airfoil
+
+
+def mixAirfoilXFLR(airfoil0, airfoil1, ratio):
+    # XFLRの翼型混合アルゴリズムを実装
+    # https://github.com/subprotocol/xflr5/blob/master/xflr5-6.10/src/xdirect/analysis/XFoil.cpp#L12858
+    new_x = []
+    new_y = []
+    
+    f0 = ratio
+    f1 = 1- ratio
+    
+    n = len(airfoil0.u)
+    
+    sle0 = airfoil0.ule
+    sle1 = airfoil1.ule
+    
+    s0 = airfoil0.u
+    s1 = airfoil1.u
+    
+    tops0 = s0[0] - sle0
+    tops1 = s1[0] - sle1
+    
+    bots0 = s0[-1] - sle0
+    bots1 = s1[-1] - sle1
+    
+    i = 0
+    while i < n:
+        if (s0[i] < sle0):
+            sn = (s0[i] - sle0) / tops0
+        else:
+            sn = (s0[i] - sle0) / bots0
+            
+        st0 = s0[i]
+        if (st0 < sle0) :
+            st1 = sle1 + tops1 * sn
+        else:
+            st1 = sle1 + bots1 * sn
+        
+        x0, y0 = airfoil0.getPoint(st0)
+        x1, y1 = airfoil1.getPoint(st1)
+        
+        x = f0*x0 + f1*x1
+        y = f0*y0 + f1*y1
+        
+        new_x.append(x)
+        new_y.append(y)
+        
+        i += 1
+        
+    new_airfoil = Airfoil(new_x, new_y)
+
+    return new_airfoil
+
 
 
 def importFromText(fileName, delimiter, skip_header):
