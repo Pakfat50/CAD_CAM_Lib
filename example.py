@@ -496,15 +496,21 @@ def example_4_8_2(plotGraph):
     airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
     airfoil = clib.trim(airfoil, 0.25, 0.75)
     airfoil = clib.scale(airfoil, 300, 0, 0)
+    poly_airfoil = clib.convertSpline2Polyline(airfoil, 500)
     collision_airfoil = clib.offset(airfoil, 10)
     fixed_airfoil = clib.offset(airfoil, 10, True)
+    fixed_poly_airfoil = clib.offset(poly_airfoil, 10, True)
+    
+    fixed_airfoil.setIntporatePoints(np.linspace(0,1, 1000))
+    fixed_poly_airfoil.setIntporatePoints(np.linspace(0,1, 1000))
     
     if plotGraph == True:
         plt.title("Example of 4.8.2")
         plt.plot(airfoil.x, airfoil.y, "b--")
         plt.plot(collision_airfoil.x, collision_airfoil.y, "b")
-        plt.plot(fixed_airfoil.x, fixed_airfoil.y, "r--")
-        plt.legend(["Before Offset","Collision caused by Offset", "Collision fixed"])
+        plt.plot(fixed_airfoil.x_intp, fixed_airfoil.y_intp, "r--")
+        plt.plot(fixed_poly_airfoil.x_intp, fixed_poly_airfoil.y_intp, "g--")
+        plt.legend(["Before Offset","Collision caused by Offset", "Collision fixed", "Collision fixed (Polyline)"])
         plt.axis("equal")   
 
 
@@ -1094,8 +1100,8 @@ if __name__ == '__main__':
     #example_4_4(True)
     #example_4_6(True)
     #example_4_7(True)
-    example_4_8_1(True)
-    #example_4_8_2(True)
+    #example_4_8_1(True)
+    example_4_8_2(True)
     #example_4_9_2(True)
     #example_4_9_3(True)
     #example_4_9_4(True)

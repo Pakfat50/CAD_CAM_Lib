@@ -11,6 +11,7 @@ from scipy import interpolate as intp
 from scipy.optimize import fsolve
 from scipy.optimize import fmin
 import traceback
+import copy
 from matplotlib import pyplot as plt
 from shapely.geometry import Point, Polygon
 
@@ -117,7 +118,7 @@ class Polyline(Spline):
         temp_x, temp_y = removeSamePoint(x, y)
         super().__init__(temp_x, temp_y)
         tck, u = intp.splprep([self.x, self.y], k=1, s=0)
-        self.line_type = "Polyiline"
+        self.line_type = "Polyline"
         self.tck = tck
         self.u = u
         self.f_curve = getInterpFunc(self.tck, 0)
@@ -489,6 +490,13 @@ def getInterpData(x, y, dim):
     temp_x, temp_y = removeSamePoint(x, y)
     
     return intp.splprep([temp_x, temp_y],k=dim,s=0)
+
+
+def convertSpline2Polyline(spline, N):
+    temp_spline = copy.deepcopy(spline)
+    temp_spline.setIntporatePoints(np.linspace(0,1,N))
+    return Polyline(temp_spline.x_intp, temp_spline.y_intp)
+    
 
 
 def invert(line):
