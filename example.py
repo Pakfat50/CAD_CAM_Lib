@@ -466,9 +466,10 @@ def example_4_7(plotGraph):
 
 
 def example_4_8_1(plotGraph):
-    # 直線とスプラインを作成
+    # 直線とスプラインと円を作成
     line = clib.SLine([0.1, 0.4], [-0.2, 0.3])
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    circle = clib.Circle(0.1, 0.5, 0)
     
     # 0.01だけオフセットする
     d = 0.01
@@ -476,14 +477,17 @@ def example_4_8_1(plotGraph):
     # オフセット後の直線とスプラインを作成
     o_line = clib.offset(line, d)
     o_spline = clib.offset(spline, -d)
+    o_circle = clib.offset(circle, 1)
     
     # グラフを描画
     if plotGraph == True:
         plt.title("Example of 4.8.1")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
+        plt.plot(circle.x, circle.y, "b--")
         plt.plot(o_line.x, o_line.y, "r")
         plt.plot(o_spline.x, o_spline.y, "r")
+        plt.plot(o_circle.x, o_circle.y, "r")
         plt.axis("equal")
         plt.show()    
 
@@ -612,11 +616,15 @@ def example_4_11_1(plotGraph):
 def example_4_11_2(plotGraph):
     # 交差するスプラインを2つ作成
     spline1 = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52] - 0.03)
-    spline2 = clib.Spline(af.NACA2412_X[53:-1], af.NACA2412_Y[53:-1] + 0.03) 
+    spline2 = clib.Spline(af.NACA2412_X[53:-1], af.NACA2412_Y[53:-1] + 0.03)
+    airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
     
     #　交点を算出
     u_root1, s_root1, cx1, cy1 = clib.getCrossPointFromCurves(spline1.f_curve, spline2.f_curve, 0.7, 0.1)
     u_root2, s_root2, cx2, cy2 = clib.getCrossPointFromCurves(spline1.f_curve, spline2.f_curve, 0.1, 0.7)
+
+    # x = 0.5でトリムしたスプラインを作成
+    u_trim = airfoil.getUfromX(0.5)
 
     # 交点でトリムしたスプラインを作成
     u_st = 0
@@ -625,14 +633,18 @@ def example_4_11_2(plotGraph):
     s_ed = 1
     t_spline1 = clib.trim(spline1, u_st, u_ed)
     t_spline2 = clib.trim(spline2, s_st, s_ed)
+    t_airfoil = clib.trim(airfoil, u_trim[0], u_trim[1])
     
     # グラフを描画
     if plotGraph == True:
         plt.title("Example of 4.11.2")
         plt.plot(spline1.x, spline1.y, "b--")
         plt.plot(spline2.x, spline2.y, "b--")
+        plt.plot(airfoil.x, airfoil.y, "b--")
         plt.plot(t_spline1.x, t_spline1.y, "r")
         plt.plot(t_spline2.x, t_spline2.y, "r")
+        plt.plot(t_airfoil.x, t_airfoil.y, "g")
+        plt.plot([0.5, 0.5], [-0.1, 0.1], "g--")
         plt.axis("equal")
         plt.show()          
 
@@ -1082,8 +1094,8 @@ if __name__ == '__main__':
     #example_4_4(True)
     #example_4_6(True)
     #example_4_7(True)
-    #example_4_8_1(True)
-    example_4_8_2(True)
+    example_4_8_1(True)
+    #example_4_8_2(True)
     #example_4_9_2(True)
     #example_4_9_3(True)
     #example_4_9_4(True)

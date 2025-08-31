@@ -95,7 +95,22 @@ class Spline(Line):
         temp_x, temp_y = self.getPoint(u)
         self.x_intp = temp_x
         self.y_intp = temp_y
-
+        
+    def getUfromX(self, x):
+        if (x >= min(self.x)) and (x <= max(self.x)) :
+            tck = intp.splrep(self.u, self.x - x, k = 3)
+            u_root = intp.sproot(tck)
+            return u_root
+        else:
+            return []
+        
+    def getUfromY(self, y):
+        if (y >= min(self.y)) and (y <= max(self.y)) :
+            tck = intp.splrep(self.u, self.y - y, k = 3)
+            u_root = intp.sproot(tck)
+            return u_root
+        else:
+            return []
 
 class Polyline(Spline):
     def __init__(self, x, y):
@@ -111,9 +126,14 @@ class Polyline(Spline):
 
 class Arc(Spline):
     def __init__(self, r, cx, cy, sita_st, sita_ed):
+        if r <= DIST_NEAR:
+            r = DIST_NEAR
+            N = 4
+        else:
+            N = N_CIRCLE
         self.sita_st = sita_st
         self.sita_ed = sita_ed
-        self.sita = np.linspace(self.sita_st, self.sita_ed, N_CIRCLE)
+        self.sita = np.linspace(self.sita_st, self.sita_ed, N)
         self.r = r
         self.cx = cx
         self.cy = cy
@@ -127,9 +147,15 @@ class Arc(Spline):
 
 class EllipseArc(Spline):
     def __init__(self, a, b, rot, cx, cy, sita_st, sita_ed):
+        if (a <= DIST_NEAR) or (b <= DIST_NEAR):
+            a = DIST_NEAR
+            b = DIST_NEAR
+            N = 4
+        else:
+            N = N_CIRCLE
         self.sita_st = sita_st
         self.sita_ed = sita_ed
-        self.sita = np.linspace(self.sita_st, self.sita_ed, N_CIRCLE)
+        self.sita = np.linspace(self.sita_st, self.sita_ed, N)
         self.rot = rot
         self.a = a
         self.b = b
@@ -174,8 +200,8 @@ class Airfoil(Spline):
         super().__init__(temp_x, temp_y)
         self.line_type = "Airfoil"
         
-        u_zero = self.u[np.argmin(self.x)]
-        u_intp = getUCosine(N_AIRFOIL_INTERPOLATE, u_zero)
+        self.u_zero = self.u[np.argmin(self.x)]
+        u_intp = getUCosine(N_AIRFOIL_INTERPOLATE, self.u_zero)
         self.setIntporatePoints(u_intp)
         
         # 翼形が時計回りか反時計回りかを検出
