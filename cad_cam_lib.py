@@ -69,6 +69,8 @@ class Spline(Line):
         self.f_diff = getInterpFunc(self.tck, 1)
         self.x_intp = self.x
         self.y_intp = self.y
+        # 時計回りか反時計回りかを検出
+        self.ccw = detectRotation(self.x, self.y)
         
     def getPoint(self, u):
         p = self.f_curve(u)
@@ -112,6 +114,23 @@ class Spline(Line):
             return u_root
         else:
             return []
+        
+    def getYfromX(self, x):
+        u_root = self.getUfromX(x)
+        if len(u_root) > 0:
+            p = self.f_curve(u_root)
+            return p[1]
+        else:
+            []
+    
+    def getXfromY(self, y):
+        u_root = self.getUfromY(y)
+        if len(u_root) > 0:
+            p =  self.f_curve(u_root)
+            return p[0]
+        else:
+            []
+    
 
 class Polyline(Spline):
     def __init__(self, x, y):
@@ -123,7 +142,8 @@ class Polyline(Spline):
         self.u = u
         self.f_curve = getInterpFunc(self.tck, 0)
         self.f_diff = getInterpFunc(self.tck, 1)
-        
+        # 時計回りか反時計回りかを検出
+        self.ccw = detectRotation(self.x, self.y)        
 
 class Arc(Spline):
     def __init__(self, r, cx, cy, sita_st, sita_ed):
@@ -201,14 +221,12 @@ class Airfoil(Spline):
         super().__init__(temp_x, temp_y)
         self.line_type = "Airfoil"
         
-        self.u_zero = self.u[np.argmin(self.x)]
-        u_intp = getUCosine(N_AIRFOIL_INTERPOLATE, self.u_zero)
-        self.setIntporatePoints(u_intp)
+        self.u_le = getUle(self.f_curve)
+        self.u_intp = getUCosine(N_AIRFOIL_INTERPOLATE, self.u_le)
+        self.setIntporatePoints(self.u_intp)
         
-        # 翼形が時計回りか反時計回りかを検出
-        self.ccw = detectRotation(self.x_intp, self.y_intp)
         zero_index = np.argmin(self.x_intp)
-        self.ule = u_intp[zero_index]
+        self.ule = self.u_intp[zero_index]
         if self.ccw == True:
             # 反時計回り      
             self.ux = self.x_intp[:zero_index+1][-1::-1]
@@ -226,9 +244,9 @@ class Airfoil(Spline):
         self.xmax = min(max(self.ux), max(self.lx))
         self.f_upper = intp.interp1d(self.ux, self.uy, kind = 'cubic')
         self.f_lower = intp.interp1d(self.lx, self.ly, kind = 'cubic')
-        cx = getXCosine(self.xmin, self.xmax, int(N_AIRFOIL_INTERPOLATE/2))
-        cy = (self.f_upper(cx) + self.f_lower(cx))/2.0
-        self.f_center = intp.interp1d(cx, cy, kind = 'cubic')
+        self.cx = getXCosine(self.xmin, self.xmax, int(N_AIRFOIL_INTERPOLATE/2))
+        self.cy = (self.f_upper(self.cx) + self.f_lower(self.cx))/2.0
+        self.f_center = intp.interp1d(self.cx, self.cy, kind = 'cubic')
 
 
 class LineGroup:
@@ -569,6 +587,14 @@ def getXCosine(xmin, xmax, num):
     x = (xmax-xmin)*(1-np.cos(sita)) + xmin
     return x
 
+
+def getUle(f_curve):
+    def solver(u):
+        x, y = f_curve(u)
+        return x
+    u_le = fmin(solver, 0.5)
+    return u_le
+
     
 def mixAirfoil(airfoil1, airfoil2, ratio):
     xmin = max(airfoil1.xmin, airfoil2.xmin)
@@ -671,7 +697,8 @@ def move(line, mx, my):
         return Ellipse(line.a, line.b, line.rot, line.cx + mx, line.cy + my)
 
     elif line.line_type == "Airfoil":
-        return Airfoil(new_x, new_y)
+        # 翼型の定義に反するので、スプラインで出力する。
+        return Spline(new_x, new_y)
 
 
 def rotate(line, sita, rx, ry):
@@ -721,7 +748,8 @@ def rotate(line, sita, rx, ry):
         return Ellipse(line.a, line.b, line.rot + sita, new_cx, new_cy)
 
     elif line.line_type == "Airfoil":
-        return Airfoil(new_x, new_y)
+        # 翼型の定義に反するので、スプラインで出力する。
+        return Spline(new_x, new_y)
 
 
 def offset(line, d, removeSelfCollision = False):
@@ -784,7 +812,8 @@ def offset(line, d, removeSelfCollision = False):
         return Ellipse(line.a+d, line.b+d, line.rot, line.cx, line.cy)
 
     elif line.line_type == "Airfoil":
-        return Airfoil(new_x, new_y)
+        # 翼型の定義に反するので、スプラインで出力する。
+        return Spline(new_x, new_y)
 
 
 def scale(line, s, x0, y0):
@@ -819,7 +848,8 @@ def scale(line, s, x0, y0):
         return Ellipse(line.a*s, line.b*s, line.rot, new_cx, new_cy)
     
     elif line.line_type == "Airfoil":
-        return Airfoil(new_x, new_y)
+        # 翼型の定義に反するので、スプラインで出力する。
+        return Spline(new_x, new_y)
 
 
 def getFiletSita(sita_st, sita_ed):
