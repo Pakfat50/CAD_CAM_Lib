@@ -282,8 +282,8 @@ def example_3_7(plotGraph):
 
 def example_3_9_1(plotGraph):
     # 翼形座標データを読み込み
-    #x, y = clib.importFromText("foils/naca2412.dat", ' ', 0)
-    x, y = clib.importFromText("foils/dae51.dat", '\t', 0)    
+    #x, y = clib.importFromText("foils/naca2412.dat", ' ', 1)
+    x, y = clib.importFromText("foils/dae51.dat", '\t', 1)    
     
     # 翼形クラスのインスタンスを作成
     airfoil = clib.Airfoil(x, y)
@@ -310,8 +310,8 @@ def example_3_9_1(plotGraph):
 
 def example_3_9_2(plotGraph):
     # 翼形座標データを読み込み
-    x, y = clib.importFromText("foils/naca2412.dat", ' ', 0)
-    #x, y = clib.importFromText("foils/dae51.dat", '\t', 0)    
+    x, y = clib.importFromText("foils/naca2412.dat", ' ', 1)
+    #x, y = clib.importFromText("foils/dae51.dat", '\t', 1)    
     
     # 翼形クラスのインスタンスを作成
     airfoil = clib.Airfoil(x, y)
@@ -335,9 +335,9 @@ def example_3_9_2(plotGraph):
 
 def example_3_9_3(plotGraph):
     # DAE51, NACA2412、およびそれらをXFLRで20%混合した座標点を読み込み
-    x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 0)
-    x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 0)
-    xm, ym = clib.importFromText("foils/dae_naca_poor.dat", '    ', 0)
+    x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 1)
+    x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 1)
+    xm, ym = clib.importFromText("foils/dae_naca_poor.dat", '    ', 1)
     
     # DAE51とNACA2412の翼形クラスのインスタンスを作成
     dae51 = clib.Airfoil(x1, y1)
