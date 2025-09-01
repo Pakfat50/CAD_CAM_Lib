@@ -36,7 +36,9 @@ class Line:
         self.st = np.array([x[0], y[0]])
         self.ed = np.array([x[-1], y[-1]])
         self.length = getLength(x, y)
-
+        # 時計回りか反時計回りかを検出
+        self.ccw = detectRotation(self.x, self.y)
+        self.closed = checkIsClosed(self.st[0], self.st[1], self.ed[0], self.ed[1])
 
 class SLine(Line):
     def __init__(self, x, y):
@@ -69,9 +71,7 @@ class Spline(Line):
         self.f_diff = getInterpFunc(self.tck, 1)
         self.x_intp = self.x
         self.y_intp = self.y
-        # 時計回りか反時計回りかを検出
-        self.ccw = detectRotation(self.x, self.y)
-        self.closed = checkIsClosed(self.st[0], self.st[1], self.ed[0], self.ed[1])
+
         
     def getPoint(self, u):
         p = self.f_curve(u)
@@ -143,9 +143,6 @@ class Polyline(Spline):
         self.u = u
         self.f_curve = getInterpFunc(self.tck, 0)
         self.f_diff = getInterpFunc(self.tck, 1)
-        # 時計回りか反時計回りかを検出
-        self.ccw = detectRotation(self.x, self.y)   
-        self.closed = checkIsClosed(self.st[0], self.st[1], self.ed[0], self.ed[1])
 
 
 class Arc(Spline):
@@ -265,7 +262,6 @@ class LineGroup(Line):
         super().__init__(x, y, "SLine")
         self.d = 0
         self.update()
-        self.ccw = detectRotation(self.x, self.y)
         
     def update(self):
         x = np.array([])
