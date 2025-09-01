@@ -249,21 +249,28 @@ class Airfoil(Spline):
         self.f_center = intp.interp1d(self.cx, self.cy, kind = 'cubic')
 
 
-class LineGroup:
+class LineGroup(Line):
     def __init__(self, line_list):
         self.lines = line_list
         self.line_type = "LineGroup"
+        
+        x = np.array([])
+        y = np.array([])
+        for line in self.lines:
+            x = np.concatenate([x, line.x], 0)
+            y = np.concatenate([y, line.y], 0)
+        super().__init__(x, y, "SLine")
         self.d = 0
         self.update()
+        self.ccw = detectRotation(self.x, self.y)
+        self.closed = checkIsClosed(self.st[0], self.st[1], self.ed[0], self.ed[1])
         
     def update(self):
         x = np.array([])
         y = np.array([])
-        
         for line in self.lines:
             x = np.concatenate([x, line.x], 0)
             y = np.concatenate([y, line.y], 0)
-        
         self.x = x
         self.y = y
         self.st = np.array([x[0], y[0]])
