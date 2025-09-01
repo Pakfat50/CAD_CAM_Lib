@@ -29,7 +29,6 @@ def example_3_2_1_1(plotGraph):
     #グラフを描画
     if plotGraph == True:
         fig = plt.figure()
-        plt.title("Example of 3.2.1.1")
         ax1 = fig.add_subplot(111)
         ax1.plot(af.NACA2412_X, af.NACA2412_Y, "bo--")
         ax1.quiver(af.NACA2412_X, af.NACA2412_Y, np.cos(sita1), np.sin(sita1),\
@@ -42,6 +41,8 @@ def example_3_2_1_1(plotGraph):
         ax1.legend(["RawData"],loc="lower right")
         ax2.legend(["Numerical Differentiation", "Arctan2"] ,loc="upper right")
         ax1.set_aspect("equal")
+        plt.title("Example of 3.2.1.1")
+        plt.show()
         
     return m1, sita1, m1_atan2 
 
@@ -56,7 +57,6 @@ def example_3_2_2_1(plotGraph):
     #グラフを描画
     if plotGraph == True:
         fig = plt.figure()
-        plt.title("Example of 3.2.2.1")
         ax1 = fig.add_subplot(111)
         ax1.plot(af.NACA2412_X, af.NACA2412_Y, "bo--")
         ax1.quiver(af.NACA2412_X, af.NACA2412_Y, np.cos(sita2), np.sin(sita2), \
@@ -69,6 +69,8 @@ def example_3_2_2_1(plotGraph):
         ax1.legend(["RawData"],loc="lower right")
         ax2.legend(["Numerical Differentiation", "Arctan2"] ,loc="upper right")      
         ax1.set_aspect("equal")
+        plt.title("Example of 3.2.2.1")
+        plt.show()
         
     return m2, sita2, m2_atan2     
 
@@ -82,11 +84,14 @@ def example_3_5_1(plotGraph):
     
     #　グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.5.1")
         plt.plot(l0.x, l0.y, "b-")
-        plt.plot(l1.x, l1.y, "b-")
+        plt.plot(l1.x, l1.y, "r-")
         plt.plot(cx, cy, "go")
-        plt.axis("equal")  
+        plt.axis("equal")
+        plt.legend(["line0", "line1", "Cross Point"])
+        plt.show()
     return l0, l1, cx, cy
 
 
@@ -100,12 +105,16 @@ def example_3_5_2(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.5.2")
         plt.plot(line.x, line.y, "b")
-        plt.plot(spline.x, spline.y, "b")
+        plt.plot(spline.x, spline.y, "r")
         plt.plot(cx, cy, "go")
-        plt.axis("equal")  
+        plt.axis("equal")
+        plt.legend(["line", "spline", "Cross Point"])
+        plt.show()
     return line, spline, cx, cy
+
 
 def example_3_5_3(plotGraph):
     # 交差するスプラインを2つ作成
@@ -118,12 +127,15 @@ def example_3_5_3(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.5.2")
         plt.plot(spline1.x, spline1.y, "b")
-        plt.plot(spline2.x, spline2.y, "b")
+        plt.plot(spline2.x, spline2.y, "r")
         plt.plot(cx1, cy1, "go")
-        plt.plot(cx2, cy2, "ro")
+        plt.plot(cx2, cy2, "ko")
         plt.axis("equal")  
+        plt.legend(["spline1", "spline2", "Cross Point1", "Cross Point2"])
+        plt.show()
     return  spline1, spline2, u_root1, s_root1
 
 
@@ -139,12 +151,14 @@ def example_3_6_1_1(plotGraph):
  
     #グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.6.1.1")
         plt.plot(x_s, y_s, "bo-")
         plt.plot(x_p, y_p, "ko-")
         plt.plot(af.NACA2412_X, af.NACA2412_Y, "ro")
         plt.legend(["spline", "polyline", "RawData"])
-        plt.axis("equal")    
+        plt.axis("equal")   
+        plt.show()
     
     return x_s, y_s, x_p, y_p, interp_point
 
@@ -168,7 +182,6 @@ def example_3_6_1_2(plotGraph):
         sita_s = np.arctan(m1_s)
         
         fig = plt.figure()
-        plt.title("Example of 3.6.1.2")
         ax1 = fig.add_subplot(111)
         ax1.plot(x_s, y_s, "bo-")
         ax1.plot(x_p, y_p, "ko-")
@@ -182,7 +195,9 @@ def example_3_6_1_2(plotGraph):
         ax1.quiver(x_s, y_s, np.cos(sita_s), np.sin(sita_s), \
            angles='xy',scale_units='xy',scale=3000, width=0.002, color = 'blue')
         plt.legend(["spline", "polyline", "RawData"])
-        ax1.set_aspect("equal")    
+        ax1.set_aspect("equal")
+        plt.title("Example of 3.6.1.2")
+        plt.show()
     
     return m1_s, m1_p
 
@@ -205,7 +220,6 @@ def example_3_6_1_3(plotGraph):
         sita_s = np.arctan(m2_s)
         
         fig = plt.figure()
-        plt.title("Example of 3.6.1.3")
         ax1 = fig.add_subplot(111)
         ax1.plot(x_s, y_s, "bo-")
         ax1.plot(x_p, y_p, "ko-")
@@ -218,7 +232,9 @@ def example_3_6_1_3(plotGraph):
         ax2.grid(True)
         ax1.plot(af.NACA2412_X, af.NACA2412_Y, "ro")
         plt.legend(["spline", "polyline", "RawData"])
-        ax1.set_aspect("equal")    
+        ax1.set_aspect("equal") 
+        plt.title("Example of 3.6.1.3")
+        plt.show()
     
     return m2_s, m2_p
 
@@ -236,6 +252,7 @@ def example_3_7(plotGraph):
     
     # グラフを描画
     if plotGraph == True:    
+        plt.figure()
         plt.title("Example of 3.7")
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "b")
@@ -259,7 +276,6 @@ def example_3_7(plotGraph):
         plt.quiver(i_ellipse.x[0], i_ellipse.y[0], i_ellipse.x[1]-i_ellipse.x[0], i_ellipse.y[1]-i_ellipse.y[0], \
            angles='xy',scale_units='xy',scale=0.1, width=0.01, color = 'red')
         
-        
         plt.axis("equal")
         plt.show()        
 
@@ -279,12 +295,16 @@ def example_3_9_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.9.1")
+        
         plt.plot(airfoil.x_intp, airfoil.y_intp, "bo-")
         plt.plot(x_func, uy, "k--")
         plt.plot(x_func, ly, "g--")
         plt.plot(x, y, "ro")
+        
         plt.axis("equal")
+        plt.legend(["Spline Interporate", "Upper func", "lower func", "Raw data(from dat file)"])
         plt.show()    
 
 
@@ -304,10 +324,12 @@ def example_3_9_2(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.9.2")
         plt.plot(airfoil.x_intp, airfoil.y_intp, "b")
         plt.plot(x_func, cy, "g")
         plt.axis("equal")
+        plt.legend(["Spline", "Center line"])
         plt.show()    
 
 
@@ -327,6 +349,7 @@ def example_3_9_3(plotGraph):
 
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 3.9.3")
         plt.plot(dae51.x_intp, dae51.y_intp, "g--")
         plt.plot(naca2412.x_intp, naca2412.y_intp, "b--")
@@ -347,12 +370,14 @@ def example_4_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.1")
-        plt.plot(line.x, line.y)
+        plt.plot(line.x, line.y, "bo-")
         plt.axis("equal")
+        plt.legend(["Raw data(from csv file)"])
         plt.show()
-    
     return line
+
 
 def example_4_2(plotGraph):
     # 直線とスプラインと楕円を作成
@@ -371,6 +396,7 @@ def example_4_2(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.2")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -379,7 +405,10 @@ def example_4_2(plotGraph):
         plt.plot(m_spline.x, m_spline.y, "r")
         plt.plot(m_ellipse.x, m_ellipse.y, "r")
         plt.axis("equal")
+        plt.legend(["Line", "Spline", "Ellipese", \
+                    "Moved line", "Moved spline", "Moved ellipse"])
         plt.show()
+
 
 def example_4_3(plotGraph):
     # 直線とスプラインと楕円を作成
@@ -399,6 +428,7 @@ def example_4_3(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.3")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -408,23 +438,29 @@ def example_4_3(plotGraph):
         plt.plot(m_ellipse.x, m_ellipse.y, "r")
         plt.plot(rx, ry, "ro")
         plt.axis("equal")
+        plt.legend(["Line", "Spline", "Ellipese", \
+                    "Rotated line", "Rotated spline", "Rotated ellipse", "Rotation Center"])
         plt.show()    
+
 
 def example_4_4(plotGraph):
     # 直線を作成
     l0 = clib.SLine([-3, 3], [-3, 3])
     l1 = clib.SLine([-3, 3], [3, -3])
     
-    print(l0.a, l0.b, np.degrees(l0.sita))
-    print(l1.a, l1.b, np.degrees(l1.sita))
+    print("line0: a=%s, b=%s, sita=%s deg"%(l0.a, l0.b, np.degrees(l0.sita)))
+    print("line1: a=%s, b=%s, sita=%s deg"%(l1.a, l1.b, np.degrees(l1.sita)))
     
     #　グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.4")
         plt.plot(l0.x, l0.y, "b")
         plt.plot(l1.x, l1.y, "r")
         plt.axis("equal")  
         plt.grid(True)
+        plt.legend(["Line0", "Line1"])
+        plt.show()
     return l0, l1
 
 
@@ -441,11 +477,15 @@ def example_4_6(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.6")
         plt.plot(circle.x, circle.y, "bo")
         plt.plot(x_i, y_i, "r--")
         plt.axis("equal")  
         plt.grid(True)
+        plt.legend(["Circle", "Interpolated Circle"])
+        plt.show()
+
 
 def example_4_7(plotGraph):
     #長軸2, 短軸1, 中心(1,1)とし、時計回りに30度傾けた楕円を作成
@@ -462,11 +502,14 @@ def example_4_7(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.7")
         plt.plot(ellipse.x, ellipse.y, "bo")
         plt.plot(x_i, y_i, "r--")
         plt.axis("equal")  
         plt.grid(True)
+        plt.legend(["Ellipse", "Interpolated Ellipse"])
+        plt.show()
 
 
 def example_4_8_1(plotGraph):
@@ -485,6 +528,7 @@ def example_4_8_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.8.1")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -493,6 +537,8 @@ def example_4_8_1(plotGraph):
         plt.plot(o_spline.x, o_spline.y, "r")
         plt.plot(o_circle.x, o_circle.y, "r")
         plt.axis("equal")
+        plt.legend(["Line", "Spline", "Circle", \
+                    "Offseted line", "Offseted spline", "Offseted circle"])
         plt.show()    
 
 
@@ -509,6 +555,7 @@ def example_4_8_2(plotGraph):
     fixed_poly_airfoil.setIntporatePoints(np.linspace(0,1, 1000))
     
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.8.2")
         plt.plot(airfoil.x, airfoil.y, "b--")
         plt.plot(collision_airfoil.x, collision_airfoil.y, "b")
@@ -516,6 +563,7 @@ def example_4_8_2(plotGraph):
         plt.plot(fixed_poly_airfoil.x_intp, fixed_poly_airfoil.y_intp, "g--")
         plt.legend(["Before Offset","Collision caused by Offset", "Collision fixed", "Collision fixed (Polyline)"])
         plt.axis("equal")   
+        plt.show()
 
 
 def example_4_9_2(plotGraph):
@@ -524,10 +572,10 @@ def example_4_9_2(plotGraph):
     
     new_l0, new_l1, filet = clib.filetLines(l0, l1, 0.2)
     new_l0_j, new_l1_j, filet_j = clib.filetLines(l0, l1, 0.2, True)
-    print(filet_j.x)
     
     #グラフを描画
-    if plotGraph == True:    
+    if plotGraph == True:  
+        plt.figure()
         plt.plot(l0.x, l0.y, "b")
         plt.plot(l1.x, l1.y, "b")
         plt.plot(filet.cx, filet.cy, "go")
@@ -535,7 +583,9 @@ def example_4_9_2(plotGraph):
         plt.plot(new_l0.x, new_l0.y, "ro--")
         plt.plot(new_l1.x, new_l1.y, "ro--")
         plt.plot(filet_j.x, filet_j.y, "k")
-        plt.axis("equal")
+        plt.axis("equal")    
+        plt.title("Example of 4.9.2")
+        plt.show()
 
 
 def example_4_9_3(plotGraph):
@@ -549,13 +599,16 @@ def example_4_9_3(plotGraph):
     t_line, t_spline, filet = clib.filetLineCurve(line, spline, 0.02, 1, 0.4)
     
     #グラフを描画
-    if plotGraph == True:    
+    if plotGraph == True:   
+        plt.figure()
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "b")
         plt.plot(filet.x, filet.y, "r--")
         plt.plot(t_spline.x, t_spline.y, "r--")
         plt.plot(t_line.x, t_line.y, "r--")
         plt.axis("equal")
+        plt.title("Example of 4.9.3")
+        plt.show()
     
     
 def example_4_9_4(plotGraph):
@@ -570,12 +623,15 @@ def example_4_9_4(plotGraph):
     
     #グラフを描画
     if plotGraph == True:    
+        plt.figure()
         plt.plot(spline1.x, spline1.y, "b")
         plt.plot(spline2.x, spline2.y, "b")
         plt.plot(filet.x, filet.y, "r--")
         plt.plot(t_spline1.x, t_spline1.y, "r--")
         plt.plot(t_spline2.x, t_spline2.y, "r--")        
         plt.axis("equal")
+        plt.title("Example of 4.9.4")
+        plt.show()
     
   
 def example_4_10(plotGraph):
@@ -596,6 +652,7 @@ def example_4_10(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.10")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -604,7 +661,10 @@ def example_4_10(plotGraph):
         plt.plot(s_spline.x, s_spline.y, "r")
         plt.plot(s_circle.x, s_circle.y, "r")
         plt.axis("equal")
+        plt.legend(["Line", "Spline", "Circle", \
+                    "Scaled line", "Scaled spline", "Scaled circle"])
         plt.show()        
+
 
 def example_4_11_1(plotGraph):
     # 線分を作成
@@ -617,11 +677,14 @@ def example_4_11_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.11.1")
         plt.plot(line.x, line.y, "b--")
         plt.plot(t_line.x, t_line.y, "r")
         plt.axis("equal")
+        plt.legend(["Line", "Trimed Line"])
         plt.show()         
+
 
 def example_4_11_2(plotGraph):
     # 交差するスプラインを2つ作成
@@ -647,6 +710,7 @@ def example_4_11_2(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.11.2")
         plt.plot(spline1.x, spline1.y, "b--")
         plt.plot(spline2.x, spline2.y, "b--")
@@ -673,10 +737,12 @@ def example_4_11_3(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.11.4")
         plt.plot(circle.x, circle.y, "b--")
         plt.plot(t_arc.x, t_arc.y, "r")
         plt.axis("equal")
+        plt.legend(["Circle", "Trimed Circle"])
         plt.show()       
 
 
@@ -696,11 +762,14 @@ def example_4_11_4(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
+        plt.figure()
         plt.title("Example of 4.11.4")
         plt.plot(ellipse.x, ellipse.y, "b--")
         plt.plot(t_spline.x, t_spline.y, "r")
         plt.axis("equal")
+        plt.legend(["Ellipse", "Trimed Ellipse"])
         plt.show()       
+        
         
 def example_4_12_1(plotGraph):
     # 直線とスプラインと円弧と楕円を作成
@@ -717,6 +786,7 @@ def example_4_12_1(plotGraph):
     scr += clib.exportLine2CommandScript(ellipse)
     
     # スクリプト出力用の文字列を確認
+    print("AutoCAD Script file is bellow")
     print(scr)
     
     # スクリプトファイル（.scr）として保存
@@ -726,7 +796,8 @@ def example_4_12_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.title("Example of 4.11.2")
+        plt.figure()
+        plt.title("Example of 4.12.1")
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "b")
         plt.plot(arc.x, arc.y, "b")
@@ -734,7 +805,6 @@ def example_4_12_1(plotGraph):
         plt.axis("equal")
         plt.show()          
     
-
 
 def example_4_12_2(plotGraph):
     # ezdxfのモデルワークスペースオブジェクトを生成
@@ -772,6 +842,7 @@ def example_4_12_2(plotGraph):
         ctx = RenderContext(doc)
         out = MatplotlibBackend(ax)
         Frontend(ctx, out).draw_layout(msp, finalize=True)
+        plt.title("Example of 4.12.2")
         fig.show()        
 
 
@@ -783,11 +854,14 @@ def example_5_1(plotGraph):
     splines = clib.importLinesFromDxf(msp, "SPLINE")
     
     if plotGraph == True:
+        plt.figure()
         for line in lines:
             plt.plot(line.x, line.y, "b")
         for spline in splines:
             plt.plot(spline.x, spline.y, "r")
         plt.axis("equal")
+        plt.title("Example of 5.1")
+        plt.show()
     
 
 def example_5_2_1(plotGraph):
@@ -813,6 +887,7 @@ def example_5_2_1(plotGraph):
     colors_st = ["bo", "go", "ro", "co", "mo", "yo", "ko", "bo", "go"]
 
     if plotGraph == True:
+        plt.figure()
         i = 0
         while i < len(line_group_list):
             line_group = line_group_list[i]
@@ -824,7 +899,9 @@ def example_5_2_1(plotGraph):
                 plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
             i += 1
-        plt.axis("equal")    
+        plt.axis("equal")
+        plt.title("Example of 5.2.1")
+        plt.show()
     return line_group_list
 
 
@@ -856,6 +933,7 @@ def example_5_2_2(plotGraph):
     colors_st = ["bo", "go", "ro", "co", "mo", "yo", "ko", "bo", "go"]
     
     if plotGraph == True:
+        plt.figure()
         i = 0
         while i < len(line_group_list):
             line_group = line_group_list[i]
@@ -867,7 +945,9 @@ def example_5_2_2(plotGraph):
                 plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
             i += 1
-        plt.axis("equal") 
+        plt.title("Example of 5.2.2")
+        plt.axis("equal")
+        plt.show()
 
 
 def example_5_3_1_1(plotGraph):
@@ -876,8 +956,7 @@ def example_5_3_1_1(plotGraph):
     
     airfoil = clib.scale(airfoil, 300, 0, 0)
     camber = clib.scale(camber, 300, 0, 0)
-    plt.plot(camber.x, camber.y)
-    print(camber.getYfromX(100))
+
     circle1 = clib.Circle(10, 100, camber.getYfromX(100))
     circle2 = clib.Circle(250, 100, camber.getYfromX(100))
     circle3 = clib.Circle(30, 100, camber.getYfromX(100))
@@ -908,6 +987,7 @@ def example_5_3_1_1(plotGraph):
         print("Circle3 is colliding with Airfoil")   
     
     if plotGraph == True:
+        plt.figure()
         x1_i, y1_i, x1_o, y1_o = clib.getInclusionList(airfoil, circle1)
         x2_i, y2_i, x2_o, y2_o = clib.getInclusionList(airfoil, circle2)
         x3_i, y3_i, x3_o, y3_o = clib.getInclusionList(airfoil, circle3)
@@ -940,7 +1020,9 @@ def example_5_3_1_1(plotGraph):
         while i < len(x3_o):
             plt.plot(x3_o[i], y3_o[i], "r--")
             i += 1                
+        plt.title("Example of 5.3.1.1")
         plt.axis("equal")    
+        plt.show()
 
 
 def example_5_3_1_2(plotGraph):
@@ -972,6 +1054,7 @@ def example_5_3_1_2(plotGraph):
         print("Collision detect!")
         
     if plotGraph == True:
+        plt.figure()
         plt.plot(airfoil.x, airfoil.y, "b")
         plt.plot(circle.x, circle.y, "b")
         x0,y0,x1,y1 = getQuiver(airfoil)
@@ -982,6 +1065,8 @@ def example_5_3_1_2(plotGraph):
         plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
         plt.axis("equal")
+        plt.title("Example of 5.3.1.2")
+        plt.show()
 
 
 def example_5_3_2(plotGraph):
@@ -1028,6 +1113,7 @@ def example_5_3_2(plotGraph):
         print("Collision detect!")
     
     if plotGraph == True:
+        plt.figure()
         plt.plot(airfoil.x, airfoil.y, "b")
         plt.plot(circle.x, circle.y, "b")
         plt.plot(o_airfoil.x, o_airfoil.y, "b--")
@@ -1039,7 +1125,9 @@ def example_5_3_2(plotGraph):
         x0,y0,x1,y1 = getQuiver(circle)
         plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
-        plt.axis("equal")   
+        plt.axis("equal")  
+        plt.title("Example of 5.3.2")
+        plt.show()
 
     
 def example_5_3_3(plotGraph):
@@ -1066,8 +1154,8 @@ def example_5_3_3(plotGraph):
             
         i += 1
     
-    
     if plotGraph == True:
+        plt.figure()
         for line_group in line_group_list:
             for line in line_group.lines:
                 plt.plot(line.x, line.y, "b")
@@ -1081,6 +1169,8 @@ def example_5_3_3(plotGraph):
                 plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=1, width=0.003, color = 'black')  
         plt.axis("equal")
+        plt.title("Example of 5.3.3")
+        plt.show()
 
 
 def getQuiver(line):
@@ -1091,7 +1181,6 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
-    """
     example_3_2_1_1(True)
     example_3_2_2_1(True)
     example_3_5_1(True)
@@ -1125,8 +1214,8 @@ if __name__ == '__main__':
     example_5_1(True)
     example_5_2_1(True)
     example_5_2_2(True)
-    """
-    #example_5_3_1_1(True)
-    #example_5_3_1_2(True)
-    #example_5_3_2(True)
+    example_5_3_1_1(True)
+    example_5_3_1_2(True)
+    example_5_3_2(True)
     example_5_3_3(True)
+    

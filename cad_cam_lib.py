@@ -490,7 +490,7 @@ def getCrossPointFromCurves(curve_func1, curve_func2, u0, s0):
         return err
     
     us0 = [u0, s0]
-    us_root = fmin(solver, x0 = us0)
+    us_root = fmin(solver, x0 = us0, disp = 0)
     u_root = us_root[0]
     s_root = us_root[1]
     p_root = curve_func1(u_root)
@@ -592,7 +592,7 @@ def getUle(f_curve):
     def solver(u):
         x, y = f_curve(u)
         return x
-    u_le = fmin(solver, 0.5)
+    u_le = fmin(solver, 0.5, disp = 0)
     return u_le
 
     
@@ -1030,8 +1030,8 @@ def filetLineCurve(line, spline, r, mode, u0):
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2
         
-        rough_xu = fmin(rough_solver, x0 = xu0)
-        opt_xu = fmin(rough_solver, x0 = rough_xu)
+        rough_xu = fmin(rough_solver, x0 = xu0, disp = 0)
+        opt_xu = fmin(rough_solver, x0 = rough_xu, disp = 0)
         
         p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_xu)
         
@@ -1159,8 +1159,8 @@ def filetCurves(spline1, spline2, r, mode, u0, s0):
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2
         
-        rough_us = fmin(rough_solver, x0 = us0)
-        opt_us = fmin(rough_solver, x0 = rough_us)
+        rough_us = fmin(rough_solver, x0 = us0, disp = 0)
+        opt_us = fmin(rough_solver, x0 = rough_us, disp = 0)
         
         p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_us)
         
