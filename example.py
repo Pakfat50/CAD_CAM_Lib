@@ -28,11 +28,11 @@ def example_3_2_1_1(plotGraph):
     
     #グラフを描画
     if plotGraph == True:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10.0, 8.0))
         ax1 = fig.add_subplot(111)
         ax1.plot(af.NACA2412_X, af.NACA2412_Y, "bo--")
         ax1.quiver(af.NACA2412_X, af.NACA2412_Y, np.cos(sita1), np.sin(sita1),\
-                   angles='xy',scale_units='xy',scale=50, width=0.002, color = 'blue')
+                   angles='xy',scale_units='xy',scale=150, width=0.005, color = 'blue')
         ax2 = ax1.twinx()
         ax2.step(af.NACA2412_X, m1, "r")
         ax2.step(af.NACA2412_X, m1_atan2, "k--")
@@ -43,6 +43,7 @@ def example_3_2_1_1(plotGraph):
         ax1.set_aspect("equal")
         plt.title("Example of 3.2.1.1")
         plt.show()
+        plt.savefig("res/Example of 3.2.1.1.svg")
         
     return m1, sita1, m1_atan2 
 
@@ -56,11 +57,11 @@ def example_3_2_2_1(plotGraph):
     
     #グラフを描画
     if plotGraph == True:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10.0, 8.0))
         ax1 = fig.add_subplot(111)
         ax1.plot(af.NACA2412_X, af.NACA2412_Y, "bo--")
         ax1.quiver(af.NACA2412_X, af.NACA2412_Y, np.cos(sita2), np.sin(sita2), \
-                   angles='xy',scale_units='xy',scale=50, width=0.002, color = 'blue')
+                   angles='xy',scale_units='xy',scale=50, width=0.005, color = 'blue')
         ax2 = ax1.twinx()
         ax2.step(af.NACA2412_X, m2, "r")
         ax2.step(af.NACA2412_X, m2_atan2, "k--")
@@ -71,6 +72,7 @@ def example_3_2_2_1(plotGraph):
         ax1.set_aspect("equal")
         plt.title("Example of 3.2.2.1")
         plt.show()
+        plt.savefig("res/Example of 3.2.2.1.svg")
         
     return m2, sita2, m2_atan2     
 
@@ -84,7 +86,7 @@ def example_3_5_1(plotGraph):
     
     #　グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 3.5.1")
         plt.plot(l0.x, l0.y, "b-")
         plt.plot(l1.x, l1.y, "r-")
@@ -92,6 +94,7 @@ def example_3_5_1(plotGraph):
         plt.axis("equal")
         plt.legend(["line0", "line1", "Cross Point"])
         plt.show()
+        plt.savefig("res/Example of 3.5.1.svg")
     return l0, l1, cx, cy
 
 
@@ -105,7 +108,7 @@ def example_3_5_2(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 3.5.2")
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "r")
@@ -113,6 +116,7 @@ def example_3_5_2(plotGraph):
         plt.axis("equal")
         plt.legend(["line", "spline", "Cross Point"])
         plt.show()
+        plt.savefig("res/Example of 3.5.2.svg")
     return line, spline, cx, cy
 
 
@@ -127,8 +131,8 @@ def example_3_5_3(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
-        plt.figure()
-        plt.title("Example of 3.5.2")
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 3.5.3")
         plt.plot(spline1.x, spline1.y, "b")
         plt.plot(spline2.x, spline2.y, "r")
         plt.plot(cx1, cy1, "go")
@@ -136,6 +140,7 @@ def example_3_5_3(plotGraph):
         plt.axis("equal")  
         plt.legend(["spline1", "spline2", "Cross Point1", "Cross Point2"])
         plt.show()
+        plt.savefig("res/Example of 3.5.3.svg")
     return  spline1, spline2, u_root1, s_root1
 
 
@@ -546,7 +551,7 @@ def example_4_8_2(plotGraph):
     airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
     airfoil = clib.trim(airfoil, 0.25, 0.75)
     airfoil = clib.scale(airfoil, 300, 0, 0)
-    poly_airfoil = clib.convertSpline2Polyline(airfoil, 500)
+    poly_airfoil = clib.convert2Polyline(airfoil, 500)
     collision_airfoil = clib.offset(airfoil, 10)
     fixed_airfoil = clib.offset(airfoil, 10, True)
     fixed_poly_airfoil = clib.offset(poly_airfoil, 10, True)
@@ -921,7 +926,8 @@ def example_5_2_2(plotGraph):
     while i < len(line_group_list):
         line_group = line_group_list[i]
         if line_group.ccw == False:
-            line_group.invertAll()
+            i_line_group = clib.invert(line_group)
+            line_group_list[i] = i_line_group
             print("line group No.%s chenge direction to CCW"%i)
         if line_group.ccw == True:
             print("line group No.%s direction is CCW"%i)
@@ -1144,12 +1150,9 @@ def example_5_3_3(plotGraph):
     o_line_group_list = []
     for line_group in line_group_list:
         if line_group.ccw == False:
-            line_group.invertAll()
-        o_line_group = copy.deepcopy(line_group)
-        o_line_group.offset(-d)
-        #o_line_group.sort(0)
+            line_group = clib.invert(line_group)
+        o_line_group = clib.offset(line_group, -d)
         o_line_group.insertFilet()
-        
         o_line_group_list.append(o_line_group)
             
         i += 1
@@ -1168,6 +1171,7 @@ def example_5_3_3(plotGraph):
                 x0,y0,x1,y1 = getQuiver(o_line)
                 plt.quiver(x0,y0,x1,y1, \
                    angles='xy',scale_units='xy',scale=1, width=0.003, color = 'black')  
+        
         plt.axis("equal")
         plt.title("Example of 5.3.3")
         plt.show()
@@ -1181,6 +1185,7 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
+    """
     example_3_2_1_1(True)
     example_3_2_2_1(True)
     example_3_5_1(True)
@@ -1217,5 +1222,7 @@ if __name__ == '__main__':
     example_5_3_1_1(True)
     example_5_3_1_2(True)
     example_5_3_2(True)
+    """
     example_5_3_3(True)
+    
     

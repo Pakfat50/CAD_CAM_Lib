@@ -18,8 +18,9 @@ from shapely.geometry import Point, Polygon
 # グローバル変数
 N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
-N_AIRFOIL = 500 # 翼形のデータ数
-N_AIRFOIL_INTERPOLATE = 1000 # 翼形補完時の補完点数
+N_AIRFOIL = 500 # 翼型のデータ数
+N_AIRFOIL_INTERPOLATE = 1000 # 翼型補完時の補完点数
+N_LINE_INTERPOLATE = 10 # 線分をポリライン・スプラインへ変換した際の補完点数
 DELTA_U = 0.01 # ベクトル算出用のu差分
 DIST_NEAR = 0.00001 # 近傍点の判定距離
 DXF_LINETYPES_DEFAULT = "ByLayer" #dxfファイルのデフォルト線種
@@ -250,17 +251,16 @@ class Airfoil(Spline):
 
 
 class LineGroup(Line):
-    def __init__(self, line_list):
+    def __init__(self, line_list, offset_dist = 0):
         self.lines = line_list
-        self.line_type = "LineGroup"
         
         x = np.array([])
         y = np.array([])
         for line in self.lines:
             x = np.concatenate([x, line.x], 0)
             y = np.concatenate([y, line.y], 0)
-        super().__init__(x, y, "SLine")
-        self.d = 0
+        super().__init__(x, y, "LineGroup")
+        self.offset_dist = offset_dist
         self.update()
         
     def update(self):
@@ -283,39 +283,14 @@ class LineGroup(Line):
             invert_line = invert(line)
             self.lines[num] = invert_line
             self.update()
-    
-    def invertAll(self):
-        i = 0
-        while i < len(self.lines):
-            line = self.lines[i]
-            invert_line = invert(line)
-            self.lines[i] = invert_line
-            i += 1
-        self.lines.reverse()
-        self.update()
             
     def sort(self, start_num):
         connect_lines = sortLines(self.lines, start_num)
         self.lines = connect_lines
         self.update()
         
-    def offset(self, d):
-        lines = []
-        for line in self.lines:
-            # オフセットする曲線が、自己交差を持ちうる場合、自己交差除去を行う
-            # 自己交差を持ちうるのはスプライン、ポリライン、翼形のみ
-            if (line.line_type == "Spline") or (line.line_type == "Polyline") or \
-                (line.line_type == "Airfoil"):
-                o_line = offset(line, d, True)
-            else:
-                o_line = offset(line, d)
-            lines.append(o_line)
-        self.lines = lines
-        self.update()
-        self.d = d
-        
     def insertFilet(self):
-        if np.abs(self.d) > DIST_NEAR:
+        if np.abs(self.offset_dist) > DIST_NEAR:
             lines = [self.lines[0]]
             i = 1
             while i < len(self.lines):
@@ -323,7 +298,7 @@ class LineGroup(Line):
                 line_ed = self.lines[i]
                 sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
                 sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
-                new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.d))
+                new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.offset_dist))
                 lines.append(filet)
                 lines.append(self.lines[i])
                 i += 1
@@ -332,7 +307,7 @@ class LineGroup(Line):
             line_ed = self.lines[0]
             sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
             sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
-            new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.d))
+            new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.offset_dist))
             lines.append(filet)
                 
             self.lines = lines
@@ -343,13 +318,13 @@ def getM1(x, y):
     i = 0
     m1 = []
     while i < len(x)-1:
-        if not (x[i+1] == x[i]):
+        if not (x[i+1] == x[i]): # ゼロ割防止
             m1.append( (y[i+1]-y[i]) / (x[i+1]-x[i]))
-        else:
+        else: # Y軸に並行な場合は傾きを無限にする
             m1.append(np.inf)
         i += 1
     
-    if not (x[-1] == x[-2]):
+    if not (x[-1] == x[-2]): # 端点調整
         m1.append( (y[-1]-y[-2]) / (x[-1]-x[-2]) )
     else:
         m1.append(np.inf)
@@ -374,10 +349,10 @@ def getSita1(x, y):
 def getM2(x, y):
     i = 0
     m2 = []
-    while i < len(x)-1:
+    while i < len(x)-1: # ゼロ割防止
         if not (y[i+1] == y[i]):
             m2.append( -(x[i+1]-x[i])/(y[i+1]-y[i]))
-        else:
+        else: # Y軸と並行な場合は傾きを無限にする
             m2.append(np.inf)
         i += 1
     
@@ -516,11 +491,38 @@ def getInterpData(x, y, dim):
     return intp.splprep([temp_x, temp_y],k=dim,s=0)
 
 
-def convertSpline2Polyline(spline, N):
-    temp_spline = copy.deepcopy(spline)
-    temp_spline.setIntporatePoints(np.linspace(0,1,N))
-    return Polyline(temp_spline.x_intp, temp_spline.y_intp)
+def convert2Polyline(line, N = None):
+    if line.line_type == "SLine":
+        x = np.linspace(line.st[0], line.ed[0], N_LINE_INTERPOLATE)
+        y = line.f_line(x)
+        return Polyline(x, y)
+    else:
+        temp_line = copy.deepcopy(line)
+        if (not (N==None)) and (not (line.line_type == "LineGroup")) :
+            temp_line.setIntporatePoints(np.linspace(0,1,N))
+            x = temp_line.x_intp
+            y = temp_line.y_intp
+        else:
+            x = temp_line.x
+            y = temp_line.y
+    return Polyline(x, y)
     
+
+def convert2Spline(line, N = None):
+    if line.line_type == "SLine":
+        x_intp = np.linspace(line.st[0], line.ed[0], N_LINE_INTERPOLATE)
+        y_intp = line.f_line(x_intp)
+        return Spline(x_intp, y_intp)
+    else:
+        temp_line = copy.deepcopy(line)
+        if (not (N==None)) and (not (line.line_type == "LineGroup")):
+            temp_line.setIntporatePoints(np.linspace(0,1,N))
+            x = temp_line.x_intp
+            y = temp_line.y_intp
+        else:
+            x = temp_line.x
+            y = temp_line.y
+    return Spline(x, y)
 
 
 def invert(line):
@@ -549,7 +551,12 @@ def invert(line):
         return Airfoil(new_x, new_y)
 
     elif line.line_type == "LineGroup":
-        return line.invertAll()    
+        line_list = []
+        for temp_line in line.lines:
+            line_list.append(invert(temp_line))
+        line_list.reverse()
+        return LineGroup(line_list, line.offset_dist)
+
 
 def detectRotation(x, y):
     i = 0
@@ -573,7 +580,6 @@ def checkIsClosed(x_st, y_st, x_ed, y_ed):
         return True
     else:
         return False
-
 
 
 def getUCosine(num, u_c):
@@ -705,6 +711,12 @@ def move(line, mx, my):
         # 翼型の定義に反するので、スプラインで出力する。
         return Spline(new_x, new_y)
 
+    elif line.line_type == "LineGroup":
+        line_list = []
+        for temp_line in line.lines:
+            line_list.append(move(temp_line, mx, my))
+        return LineGroup(line_list, line.offset_dist)
+
 
 def rotate(line, sita, rx, ry):
     
@@ -756,6 +768,12 @@ def rotate(line, sita, rx, ry):
         # 翼型の定義に反するので、スプラインで出力する。
         return Spline(new_x, new_y)
 
+    elif line.line_type == "LineGroup":
+        line_list = []
+        for temp_line in line.lines:
+            line_list.append(rotate(temp_line, sita, rx, ry))
+        return LineGroup(line_list, line.offset_dist)
+
 
 def offset(line, d, removeSelfCollision = False):
     # 半径を変化させてオフセットする円系は、回転方向によるオフセット方向の変化をスプライン等とそろえるため、
@@ -770,7 +788,7 @@ def offset(line, d, removeSelfCollision = False):
     if (line.line_type == "SLine"):
         new_x = line.x - d*np.sin(line.sita)
         new_y = line.y + d*np.cos(line.sita)
-    else: 
+    elif not(line.line_type == "LineGroup"): 
         new_x = []
         new_y = []
         
@@ -820,6 +838,18 @@ def offset(line, d, removeSelfCollision = False):
         # 翼型の定義に反するので、スプラインで出力する。
         return Spline(new_x, new_y)
 
+    elif line.line_type == "LineGroup":
+        line_list = []
+        for temp_line in line.lines:
+            # オフセットする曲線が、自己交差を持ちうる場合、自己交差除去を行う
+            # 自己交差を持ちうるのはスプライン、ポリライン、翼型のみ
+            if (temp_line.line_type == "Spline") or (temp_line.line_type == "Polyline"):
+                o_line = offset(temp_line, d, True)
+            else:
+                o_line = offset(temp_line, d)
+            line_list.append(o_line)
+        return LineGroup(line_list, d)
+
 
 def scale(line, s, x0, y0):
     
@@ -855,6 +885,13 @@ def scale(line, s, x0, y0):
     elif line.line_type == "Airfoil":
         # 翼型の定義に反するので、スプラインで出力する。
         return Spline(new_x, new_y)
+
+    elif line.line_type == "LineGroup":
+        line_list = []
+        for temp_line in line.lines:
+            line_list.append(scale(temp_line, s, x0, y0))
+        return LineGroup(line_list, line.offset_dist)
+
 
 
 def getFiletSita(sita_st, sita_ed):
@@ -1235,6 +1272,10 @@ def trim(line, st, ed):
         x_ed = ed
         new_x = np.array([x_st, x_ed])
         new_y = line.f_line(new_x)
+            
+    if (line.line_type == "LineGroup"):
+        # 線群はポリラインに変換する
+        line = convert2Polyline(line)            
         
     if (line.line_type == "Spline") or (line.line_type == "Polyline") or \
         (line.line_type == "Arc") or (line.line_type == "Airfoil"):
@@ -1291,8 +1332,9 @@ def trim(line, st, ed):
         return EllipseArc(line.a, line.b, line.rot, line.cx, line.cy, sita_st-line.rot, sita_ed-line.rot)
 
     elif line.line_type == "Airfoil":
-        #翼形をトリムしたオブジェクトはスプラインを返す
+        #翼型をトリムしたオブジェクトはスプラインを返す
         return Spline(new_x, new_y)
+
 
 def getTuplePoints(x, y):
     points = []
