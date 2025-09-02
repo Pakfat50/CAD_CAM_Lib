@@ -607,10 +607,10 @@ def getUle(f_curve):
     return u_le
 
     
-def mixAirfoil(airfoil1, airfoil2, ratio):
+def mixAirfoil(airfoil1, airfoil2, ratio, debug = False):
     xmin = max(airfoil1.xmin, airfoil2.xmin)
     xmax = min(airfoil1.xmax, airfoil2.xmax)
-    x = getXCosine(xmin, xmax, int(N_AIRFOIL/2))
+    x = getXCosine(xmin, xmax, int(N_AIRFOIL/20))
     uy = ratio*airfoil1.f_upper(x) + (1-ratio)*airfoil2.f_upper(x)
     ly = ratio*airfoil1.f_lower(x) + (1-ratio)*airfoil2.f_lower(x)
     
@@ -619,14 +619,20 @@ def mixAirfoil(airfoil1, airfoil2, ratio):
     
     new_airfoil = Airfoil(new_x, new_y)
     
-    return new_airfoil
+    if debug == True:
+        return new_airfoil, new_x
+    else:
+        return new_airfoil
 
 
-def mixAirfoilXFLR(airfoil0, airfoil1, ratio):
+def mixAirfoilXFLR(airfoil0, airfoil1, ratio, debug=False):
     # XFLRの翼型混合アルゴリズムを実装
     # https://github.com/subprotocol/xflr5/blob/master/xflr5-6.10/src/xdirect/analysis/XFoil.cpp#L12858
     new_x = []
     new_y = []
+    
+    new_x1 = []
+    new_y1 = []
     
     f0 = ratio
     f1 = 1- ratio
@@ -666,13 +672,17 @@ def mixAirfoilXFLR(airfoil0, airfoil1, ratio):
         
         new_x.append(x)
         new_y.append(y)
+        new_x1.append(x1)
+        new_y1.append(y1)
         
         i += 1
         
     new_airfoil = Airfoil(new_x, new_y)
-
-    return new_airfoil
-
+    
+    if debug == True:
+        return new_airfoil, Airfoil(new_x1, new_y1)
+    else:
+        return new_airfoil
 
 
 def importFromText(fileName, delimiter, skip_header):

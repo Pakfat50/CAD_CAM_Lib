@@ -156,13 +156,23 @@ def example_3_6_1_1(plotGraph):
  
     #グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 3.6.1.1")
+        plt.plot(x_s, y_s, "b")
+        plt.plot(x_p, y_p, "k--")
+        plt.plot(af.NACA2412_X, af.NACA2412_Y, "ro")
+        plt.legend(["spline", "polyline", "RawData"])
+        plt.axis("equal")
+        plt.savefig("res/Example of 3.6.1.1_1.svg")
+        
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 3.6.1.1")
         plt.plot(x_s, y_s, "bo-")
         plt.plot(x_p, y_p, "ko-")
         plt.plot(af.NACA2412_X, af.NACA2412_Y, "ro")
         plt.legend(["spline", "polyline", "RawData"])
-        plt.axis("equal")   
+        plt.axis("equal")
+        plt.savefig("res/Example of 3.6.1.1_2.svg")
         plt.show()
     
     return x_s, y_s, x_p, y_p, interp_point
@@ -186,22 +196,23 @@ def example_3_6_1_2(plotGraph):
     if plotGraph == True:
         sita_s = np.arctan(m1_s)
         
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10.0, 8.0))
         ax1 = fig.add_subplot(111)
-        ax1.plot(x_s, y_s, "bo-")
-        ax1.plot(x_p, y_p, "ko-")
+        ax1.plot(x_s, y_s, "b-")
+        ax1.plot(x_p, y_p, "k--")
 
         ax2 = ax1.twinx()
         ax2.plot(x_s, m1_s, "b--")
         ax2.step(x_p, m1_p, "k--")
         ax2.set_ylim([-1,1])
         ax2.grid(True)
-        ax1.plot(af.NACA2412_X, af.NACA2412_Y, "ro")
+        ax1.plot(af.NACA2412_X, af.NACA2412_Y, "r")
         ax1.quiver(x_s, y_s, np.cos(sita_s), np.sin(sita_s), \
-           angles='xy',scale_units='xy',scale=3000, width=0.002, color = 'blue')
+           angles='xy',scale_units='xy',scale=3000, width=0.003, color = 'blue')
         plt.legend(["spline", "polyline", "RawData"])
         ax1.set_aspect("equal")
         plt.title("Example of 3.6.1.2")
+        plt.savefig("res/Example of 3.6.1.2.svg")
         plt.show()
     
     return m1_s, m1_p
@@ -224,7 +235,7 @@ def example_3_6_1_3(plotGraph):
     if plotGraph == True:
         sita_s = np.arctan(m2_s)
         
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10.0, 8.0))
         ax1 = fig.add_subplot(111)
         ax1.plot(x_s, y_s, "bo-")
         ax1.plot(x_p, y_p, "ko-")
@@ -239,10 +250,36 @@ def example_3_6_1_3(plotGraph):
         plt.legend(["spline", "polyline", "RawData"])
         ax1.set_aspect("equal") 
         plt.title("Example of 3.6.1.3")
+        plt.savefig("res/Example of 3.6.1.3.svg")
         plt.show()
     
     return m2_s, m2_p
 
+
+def example_3_6_2(plotGraph):
+    airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
+    u1 = clib.getUCosine(500, airfoil.u_le)
+    u2 = np.linspace(0,1,500)
+    x1, y1 = airfoil.getPoint(u1)
+    x2, y2 = airfoil.getPoint(u2)
+
+    #グラフを描画
+    if plotGraph == True:
+        plt.figure(figsize=(10.0, 8.0)) 
+        plt.plot(u2, u1, "b")
+        plt.plot(u2, u2, "r")
+        plt.legend(["Linear", "Cosine"])
+        plt.axis("equal") 
+        plt.title("Example of 3.6.2")
+        plt.savefig("res/Example of 3.6.2_1.svg")
+
+        plt.figure(figsize=(10.0, 8.0)) 
+        plt.plot(x1, y1, "bo--")
+        plt.plot(x2, y2, "ro--")
+        plt.legend(["Linear", "Cosine"])
+        plt.axis("equal") 
+        plt.title("Example of 3.6.2")
+        plt.savefig("res/Example of 3.6.2_2.svg")
 
 def example_3_7(plotGraph):
     # 直線とスプラインと楕円を作成
@@ -257,7 +294,7 @@ def example_3_7(plotGraph):
     
     # グラフを描画
     if plotGraph == True:    
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 3.7")
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "b")
@@ -282,6 +319,7 @@ def example_3_7(plotGraph):
            angles='xy',scale_units='xy',scale=0.1, width=0.01, color = 'red')
         
         plt.axis("equal")
+        plt.savefig("res/Example of 3.7.svg")
         plt.show()        
 
 
@@ -300,16 +338,17 @@ def example_3_9_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 3.9.1")
         
-        plt.plot(airfoil.x_intp, airfoil.y_intp, "bo-")
-        plt.plot(x_func, uy, "k--")
-        plt.plot(x_func, ly, "g--")
-        plt.plot(x, y, "ro")
+        #plt.plot(airfoil.x_intp, airfoil.y_intp, "b-")
+        plt.plot(x_func, uy, "r")
+        plt.plot(x_func, ly, "b")
+        #plt.plot(x, y, "ro")
         
         plt.axis("equal")
-        plt.legend(["Spline Interporate", "Upper func", "lower func", "Raw data(from dat file)"])
+        plt.legend(["Upper func", "lower func"])
+        plt.savefig("res/Example of 3.9.1.svg")
         plt.show()    
 
 
@@ -329,12 +368,13 @@ def example_3_9_2(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 3.9.2")
         plt.plot(airfoil.x_intp, airfoil.y_intp, "b")
         plt.plot(x_func, cy, "g")
         plt.axis("equal")
-        plt.legend(["Spline", "Center line"])
+        plt.legend(["Spline", "Camber line"])
+        plt.savefig("res/Example of 3.9.2.svg")
         plt.show()    
 
 
@@ -349,22 +389,46 @@ def example_3_9_3(plotGraph):
     naca2412 = clib.Airfoil(x2, y2)
     
     # DAE51とNACA2412を20%混合した座標点を作成
-    mix_airfoil = clib.mixAirfoil(dae51, naca2412, 0.2) 
-    mix_airfoil_xflr = clib.mixAirfoilXFLR(dae51, naca2412, 0.2) 
+    mix_airfoil, x = clib.mixAirfoil(dae51, naca2412, 0.2, True) 
+    mix_airfoil_xflr, naca2412_p = clib.mixAirfoilXFLR(dae51, naca2412, 0.2, True) 
+    
+    dae_uy = dae51.f_upper(x)
+    dae_ly = dae51.f_lower(x)
+    dae_y = np.concatenate([dae_uy[-1::-1], dae_ly], 0)
+    
+    naca_uy = naca2412.f_upper(x)
+    naca_ly = naca2412.f_lower(x)
+    naca_y = np.concatenate([naca_uy[-1::-1], naca_ly], 0)
+    x_foil = np.concatenate([x[-1::-1], x], 0)
 
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
-        plt.title("Example of 3.9.3")
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 3.9.3 (X Method)")
         plt.plot(dae51.x_intp, dae51.y_intp, "g--")
         plt.plot(naca2412.x_intp, naca2412.y_intp, "b--")
-        plt.plot(mix_airfoil.x_intp, mix_airfoil.y_intp, "c")
-        plt.plot(mix_airfoil_xflr.x_intp, mix_airfoil_xflr.y_intp, "r--")
+        plt.plot(mix_airfoil.x_intp, mix_airfoil.y_intp, "c--")
+        plt.plot(xm, ym, "ro")
+        plt.plot(x_foil, dae_y, "go")
+        plt.plot(x_foil, naca_y, "bo")
+        plt.plot(mix_airfoil.x, mix_airfoil.y, "co")
+        plt.axis("equal")
+        plt.legend(["DAE51", "NACA2412", "Mix(by X Method)","XFLR Mix"])
+        plt.savefig("res/Example of 3.9.3_1.svg")
+        plt.show()    
+        
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 3.9.3 (XFLR Method)")
+        plt.plot(dae51.x_intp, dae51.y_intp, "g--")
+        plt.plot(naca2412.x_intp, naca2412.y_intp, "b--")
+        plt.plot(mix_airfoil_xflr.x_intp, mix_airfoil_xflr.y_intp, "c--")
         plt.plot(xm, ym, "ro")
         plt.plot(x1, y1, "go")
-        plt.plot(x2, y2, "bo")
+        plt.plot(naca2412_p.x, naca2412_p.y, "bo")
+        plt.plot(mix_airfoil_xflr.x, mix_airfoil_xflr.y, "co")
         plt.axis("equal")
-        plt.legend(["DAE51", "NACA2412", "Mix(by X)", "Mix(by Pram)","XFLR Mix"])
+        plt.legend(["DAE51", "NACA2412", "Mix(by XFLR Method)","XFLR Mix"])
+        plt.savefig("res/Example of 3.9.3_2.svg")
         plt.show()    
     
 
@@ -1194,10 +1258,13 @@ if __name__ == '__main__':
     example_3_6_1_1(True)
     example_3_6_1_2(True)
     example_3_6_1_3(True)
+    example_3_6_2(True)
     example_3_7(True)
     example_3_9_1(True)
     example_3_9_2(True)
+    """
     example_3_9_3(True)
+    """
     example_4_1(True)
     example_4_2(True)
     example_4_3(True)
@@ -1222,7 +1289,7 @@ if __name__ == '__main__':
     example_5_3_1_1(True)
     example_5_3_1_2(True)
     example_5_3_2(True)
-    """
     example_5_3_3(True)
+    """
     
     
