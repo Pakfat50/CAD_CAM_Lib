@@ -1471,24 +1471,36 @@ def importLinesFromDxf(msp, dxf_object_type):
     if not(len(line_objs) == 0):
         if dxf_object_type == 'LINE':
             for line_obj in line_objs:
-                temp_line = []
-                temp_line.append(line_obj.dxf.start)
-                temp_line.append(line_obj.dxf.end)
-                temp_line = np.array(temp_line)[:,0:2]
-                if norm(temp_line[0,0],temp_line[0,1],temp_line[1,0],temp_line[1,1]) != 0:
-                    line = SLine(temp_line[:,0], temp_line[:,1])
+                
+                p_st = line_obj.dxf.start
+                p_ed = line_obj.dxf.end
+
+                points = []
+                points.append(p_st)
+                points.append(p_ed)
+                points = np.array(points)[:,0:2]
+                x = points[:,0]
+                y = points[:,1]
+                
+                if norm(x[0],y[0],x[1],y[1]) != 0:
+                    line = SLine(x, y)
                     line_list.append(line)
                         
         elif dxf_object_type == 'SPLINE':
             for line_obj in line_objs:
                 control_points = np.array(line_obj.control_points)[:]
                 fit_points = np.array(line_obj.fit_points)[:]
+                
                 if not(len(control_points) == 0):
-                    spline = Spline(control_points[:,0], control_points[:,1]) 
-                    line_list.append(spline)
+                    x = control_points[:,0]
+                    y = control_points[:,1]
+                    
                 elif not(len(fit_points) == 0):
-                    spline = Spline(fit_points[:,0], fit_points[:,1]) 
-                    line_list.append(spline)                    
+                    x = fit_points[:,0]
+                    y = fit_points[:,1]
+                    
+                spline = Spline(x, y) 
+                line_list.append(spline)
                 
         elif dxf_object_type == 'ARC':
             for line_obj in line_objs:
@@ -1504,12 +1516,17 @@ def importLinesFromDxf(msp, dxf_object_type):
         elif dxf_object_type == 'LWPOLYLINE':
                 control_points = np.array(line_obj.control_points)[:]
                 fit_points = np.array(line_obj.fit_points)[:]
+                
                 if not(len(control_points) == 0):
-                    polyline = Polyline(control_points[:,0], control_points[:,1]) 
-                    line_list.append(polyline)
+                    x = control_points[:,0]
+                    y = control_points[:,1]
+                    
                 elif not(len(fit_points) == 0):
-                    polyline = Polyline(fit_points[:,0], fit_points[:,1]) 
-                    line_list.append(polyline)     
+                    x = fit_points[:,0]
+                    y = fit_points[:,1]
+                    
+                polyline = Polyline(x, y) 
+                line_list.append(polyline)     
 
         return line_list     
 

@@ -1002,13 +1002,14 @@ def example_5_1(plotGraph):
     splines = clib.importLinesFromDxf(msp, "SPLINE")
     
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         for line in lines:
             plt.plot(line.x, line.y, "b")
         for spline in splines:
             plt.plot(spline.x, spline.y, "r")
         plt.axis("equal")
         plt.title("Example of 5.1")
+        plt.savefig("res/Example of 5.1.svg") 
         plt.show()
     
 
@@ -1359,10 +1360,10 @@ if __name__ == '__main__':
     example_4_11_3(True)
     example_4_11_4(True)
     example_4_12_1(True)
-    """
     example_4_12_2(True)
     """
     example_5_1(True)
+    """
     example_5_2_1(True)
     example_5_2_2(True)
     example_5_3_1_1(True)
