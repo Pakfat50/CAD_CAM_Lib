@@ -471,9 +471,28 @@ def getCrossPointFromCurves(curve_func1, curve_func2, u0, s0):
     
     us0 = [u0, s0]
     us_root = fmin(solver, x0 = us0, disp = 0)
+    u0_root = us_root[0]
+    u1_root = us_root[1]
+    p_root = curve_func1(u0_root)
+    x_root = p_root[0]
+    y_root = p_root[1]
+    return u0_root, u1_root, x_root, y_root
+
+
+def getCrossPointFromSelfCurve(curve_func, u0, u1):
+    def solver(us):
+        u = us[0]
+        s = us[1]
+        p1 = curve_func(u)
+        p2 = curve_func(s)
+        err = np.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+        return err
+    
+    us0 = [u0, u1]
+    us_root = fmin(solver, x0 = us0, disp = 0)
     u_root = us_root[0]
     s_root = us_root[1]
-    p_root = curve_func1(u_root)
+    p_root = curve_func(u_root)
     x_root = p_root[0]
     y_root = p_root[1]
     return u_root, s_root, x_root, y_root
@@ -785,7 +804,7 @@ def rotate(line, sita, rx, ry):
         return LineGroup(line_list, line.offset_dist)
 
 
-def offset(line, d, removeSelfCollision = False):
+def offset(line, d):
     # 半径を変化させてオフセットする円系は、回転方向によるオフセット方向の変化をスプライン等とそろえるため、
     # 反時計回りの場合は、オフセット方向を反転させる
     if (line.line_type == "Arc") or (line.line_type == "EllipseArc"):
@@ -816,11 +835,8 @@ def offset(line, d, removeSelfCollision = False):
             new_y.append(y + d*np.cos(sita))
             i += 1
         
-        if removeSelfCollision == True:
-            new_x, new_y = detectSelfCollision(new_x, new_y)
-        else:
-            new_x = np.array(new_x)
-            new_y = np.array(new_y)
+        new_x = np.array(new_x)
+        new_y = np.array(new_y)
         
     
     if line.line_type == "Spline":
@@ -851,12 +867,8 @@ def offset(line, d, removeSelfCollision = False):
     elif line.line_type == "LineGroup":
         line_list = []
         for temp_line in line.lines:
-            # オフセットする曲線が、自己交差を持ちうる場合、自己交差除去を行う
-            # 自己交差を持ちうるのはスプライン、ポリライン、翼型のみ
-            if (temp_line.line_type == "Spline") or (temp_line.line_type == "Polyline"):
-                o_line = offset(temp_line, d, True)
-            else:
-                o_line = offset(temp_line, d)
+            o_line = offset(temp_line, d)
+            o_line = removeSelfCollision(o_line)
             line_list.append(o_line)
         return LineGroup(line_list, d)
 
@@ -967,6 +979,7 @@ def filetLines(l0, l1, r, join=False):
         new_l1 = SLine([p2_x, l1.x[1]], [p2_y, l1.y[1]])
         
         if join == True:
+            # ２本の線とフィレットを一体化する
             x = np.append(l0.x[0], filet.x)
             x = np.append(x, l1.x[1])
             y = np.append(l0.y[0], filet.y)
@@ -1068,22 +1081,22 @@ def filetLineCurve(line, spline, r, mode, u0):
             
             return lx, ly, cx, cy, fx, fy
         
-        def rough_solver(xu):
+        def Fr(xu):
             lx, ly, cx, cy, fx, fy = calc(xu)
             dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
             dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2 + ((fx_est-fx)**2 + (fy_est-fy)**2)**2
 
-        def solver(xu):
+        def F(xu):
             lx, ly, cx, cy, fx, fy = calc(xu)
             dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
             dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2
         
-        rough_xu = fmin(rough_solver, x0 = xu0, disp = 0)
-        opt_xu = fmin(rough_solver, x0 = rough_xu, disp = 0)
+        rough_xu = fmin(Fr, x0 = xu0, disp = 0)
+        opt_xu = fmin(F, x0 = rough_xu, disp = 0)
         
         p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_xu)
         
@@ -1197,22 +1210,22 @@ def filetCurves(spline1, spline2, r, mode, u0, s0):
             
             return x1, y1, x2, y2, fx, fy
         
-        def rough_solver(us):
+        def Fr(us):
             lx, ly, cx, cy, fx, fy = calc(us)
             dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
             dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2 + ((fx_est-fx)**2 + (fy_est-fy)**2)**2
 
-        def solver(us):
+        def F(us):
             lx, ly, cx, cy, fx, fy = calc(us)
             dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
             dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
             
             return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2
         
-        rough_us = fmin(rough_solver, x0 = us0, disp = 0)
-        opt_us = fmin(rough_solver, x0 = rough_us, disp = 0)
+        rough_us = fmin(Fr, x0 = us0, disp = 0)
+        opt_us = fmin(F, x0 = rough_us, disp = 0)
         
         p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_us)
         
@@ -1275,13 +1288,19 @@ def filetCurves(spline1, spline2, r, mode, u0, s0):
     return t_spline1, t_spline2, filet
 
 
-def trim(line, st, ed):
+def trim(line, st, ed, lineAxis = "x"):
 
     if (line.line_type == "SLine"):
-        x_st = st
-        x_ed = ed
-        new_x = np.array([x_st, x_ed])
-        new_y = line.f_line(new_x)
+        if lineAxis == "y":
+            y_st = st
+            y_ed = ed
+            new_x = np.array([(y_st-line.b)/line.a, (y_ed-line.b)/line.a])
+            new_y = np.array([y_st, y_ed])
+        else:
+            x_st = st
+            x_ed = ed
+            new_x = np.array([x_st, x_ed])
+            new_y = np.array([line.a*x_st + line.b, line.a*x_ed + line.b])
             
     if (line.line_type == "LineGroup"):
         # 線群はポリラインに変換する
@@ -1376,13 +1395,13 @@ def exportLine2CommandScript(line):
             i += 1
         temp_str += "\n\n\n"
             
-    elif line.line_type == "Polyine":
+    elif line.line_type == "Polyline":
         i = 0
         temp_str += "_.PLINE\n"
         while i < len(line.x_intp):
             temp_str += "%s,%s\n"%(line.x_intp[i], line.y_intp[i])
             i += 1
-        temp_str += "\n\n"
+        temp_str += "\n"
         
     elif line.line_type == "SLine":
         temp_str += "_.LINE\n"
@@ -1685,27 +1704,42 @@ def cross_judge(a, b, c, d):
     return tc1 * tc2 <= 0 and td1 * td2 <= 0
 
 
-def detectSelfCollision(x, y):
-    new_x = [x[0]]
-    new_y = [y[0]]
+def removeSelfCollision(line):
     
-    i = 1
-    while i < len(x):
-        j = i+1
-        p1 = [x[i-1], y[i-1]]
-        p2 = [x[i], y[i]]
-        while j < len(x)-3:
-            p3 = [x[j], y[j]]
-            p4 = [x[j+1], y[j+1]]
-            if cross_judge(p1, p2, p3, p4) == True:
-                cx, cy = getCrossPointFromPoint(p1[0], p1[1], p3[0], p3[1], p2[0], p2[1], p4[0], p4[1])
-                new_x.append(cx)
-                new_y.append(cy)             
-                i = j+1
-            j += 1
-        new_x.append(x[i])
-        new_y.append(y[i])
-        i += 1
+    x = line.x
+    y = line.y
     
-    return np.array(new_x), np.array(new_y)
+    if (line.line_type == "Spline") or (line.line_type == "Polyline"):
+    
+        new_x = [x[0]]
+        new_y = [y[0]]
+        
+        i = 1
+        while i < len(x):
+            j = i+1
+            p1 = [x[i-1], y[i-1]]
+            p2 = [x[i], y[i]]
+            while j < len(x)-3:
+                p3 = [x[j], y[j]]
+                p4 = [x[j+1], y[j+1]]
+                if cross_judge(p1, p2, p3, p4) == True:
+                    cx, cy = getCrossPointFromPoint(p1[0], p1[1], p3[0], p3[1], p2[0], p2[1], p4[0], p4[1])
+                    new_x.append(cx)
+                    new_y.append(cy)             
+                    i = j+1
+                j += 1
+            new_x.append(x[i])
+            new_y.append(y[i])
+            i += 1
+    
+    if line.line_type == "Spline":
+        return Spline(new_x, new_y)
+    
+    elif line.line_type == "Polyline":
+        return Polyline(new_x, new_y)
+    else:
+        return line
+
+
+    
 

@@ -439,11 +439,12 @@ def example_4_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.1")
         plt.plot(line.x, line.y, "bo-")
         plt.axis("equal")
         plt.legend(["Raw data(from csv file)"])
+        plt.savefig("res/Example of 4.1.svg")
         plt.show()
     return line
 
@@ -465,7 +466,7 @@ def example_4_2(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.2")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -476,6 +477,7 @@ def example_4_2(plotGraph):
         plt.axis("equal")
         plt.legend(["Line", "Spline", "Ellipese", \
                     "Moved line", "Moved spline", "Moved ellipse"])
+        plt.savefig("res/Example of 4.2.svg")
         plt.show()
 
 
@@ -488,7 +490,7 @@ def example_4_3(plotGraph):
     # (x,y) = (0.5, 0.5)を中心に時計回りに45度回転する
     rx = 0.5
     ry = 0.5
-    sita = np.radians(45)
+    sita = np.radians(30)
     
     # 移動後の直線とスプラインを作成
     m_line = clib.rotate(line, sita, rx, ry)
@@ -497,7 +499,7 @@ def example_4_3(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.3")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -509,6 +511,7 @@ def example_4_3(plotGraph):
         plt.axis("equal")
         plt.legend(["Line", "Spline", "Ellipese", \
                     "Rotated line", "Rotated spline", "Rotated ellipse", "Rotation Center"])
+        plt.savefig("res/Example of 4.3.svg")
         plt.show()    
 
 
@@ -522,13 +525,14 @@ def example_4_4(plotGraph):
     
     #　グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.4")
         plt.plot(l0.x, l0.y, "b")
         plt.plot(l1.x, l1.y, "r")
         plt.axis("equal")  
         plt.grid(True)
         plt.legend(["Line0", "Line1"])
+        plt.savefig("res/Example of 4.4.svg")
         plt.show()
     return l0, l1
 
@@ -540,19 +544,26 @@ def example_4_6(plotGraph):
     ry = 1
     circle = clib.Circle(r, rx, ry)
     
+
+    sita_st = 0 
+    sita_ed = 90
+    arc = clib.Arc(r, rx, ry, np.radians(sita_st), np.radians(sita_ed))
+    
     #補完点を200点生成。
     interp_point = np.linspace(0,1,200)  
     x_i, y_i = circle.getPoint(interp_point)
 
     #　グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.6")
-        plt.plot(circle.x, circle.y, "bo")
-        plt.plot(x_i, y_i, "r--")
+        plt.plot(circle.x, circle.y, "b")
+        plt.plot(arc.x, arc.y, "r--")
+        #plt.plot(x_i, y_i, "r--")
         plt.axis("equal")  
         plt.grid(True)
-        plt.legend(["Circle", "Interpolated Circle"])
+        plt.legend(["Circle", "Arc"])
+        plt.savefig("res/Example of 4.6.svg")
         plt.show()
 
 
@@ -571,13 +582,14 @@ def example_4_7(plotGraph):
 
     #　グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.7")
-        plt.plot(ellipse.x, ellipse.y, "bo")
-        plt.plot(x_i, y_i, "r--")
+        #plt.plot(ellipse.x, ellipse.y, "bo")
+        plt.plot(x_i, y_i, "r")
         plt.axis("equal")  
         plt.grid(True)
         plt.legend(["Ellipse", "Interpolated Ellipse"])
+        plt.savefig("res/Example of 4.7.svg")
         plt.show()
 
 
@@ -590,14 +602,21 @@ def example_4_8_1(plotGraph):
     # 0.01だけオフセットする
     d = 0.01
     
-    # オフセット後の直線とスプラインを作成
+    # 外側にオフセット後の直線とスプラインを作成
     o_line = clib.offset(line, d)
     o_spline = clib.offset(spline, -d)
-    o_circle = clib.offset(circle, 1)
+    o_circle = clib.offset(circle, -d)
+    
+    # 内側にオフセットしたスプラインを作成
+    d1 = 0.03
+    o_spline_self_col = clib.offset(spline, d1)
+    u0_root, u1_root, x_root, y_root = clib.getCrossPointFromSelfCurve(o_spline_self_col.f_curve, 0, 1)
+    t_spline = clib.trim(o_spline_self_col, u0_root, u1_root)
+    tr_spline = clib.removeSelfCollision(t_spline)
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.8.1")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
@@ -608,7 +627,32 @@ def example_4_8_1(plotGraph):
         plt.axis("equal")
         plt.legend(["Line", "Spline", "Circle", \
                     "Offseted line", "Offseted spline", "Offseted circle"])
-        plt.show()    
+        plt.savefig("res/Example of 4.8.1_1.svg")  
+
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 4.8.1")
+        plt.plot(spline.x, spline.y, "b--")
+        plt.plot(o_spline_self_col.x, o_spline_self_col.y, "r")
+        plt.axis("equal")
+        plt.legend(["Spline", "Offseted spline"])
+        plt.savefig("res/Example of 4.8.1_2.svg")  
+
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 4.8.1")
+        plt.plot(spline.x, spline.y, "b--")
+        plt.plot(t_spline.x, t_spline.y, "r")
+        plt.axis("equal")
+        plt.legend(["Spline", "Offseted spline"])
+        plt.savefig("res/Example of 4.8.1_3.svg")  
+
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 4.8.1")
+        plt.plot(spline.x, spline.y, "b--")
+        plt.plot(tr_spline.x, tr_spline.y, "r")
+        plt.axis("equal")
+        plt.legend(["Spline", "Offseted spline"])
+        plt.savefig("res/Example of 4.8.1_4.svg")  
+
 
 
 def example_4_8_2(plotGraph):
@@ -617,21 +661,24 @@ def example_4_8_2(plotGraph):
     airfoil = clib.scale(airfoil, 300, 0, 0)
     poly_airfoil = clib.convert2Polyline(airfoil, 500)
     collision_airfoil = clib.offset(airfoil, 10)
-    fixed_airfoil = clib.offset(airfoil, 10, True)
-    fixed_poly_airfoil = clib.offset(poly_airfoil, 10, True)
+    fixed_airfoil = clib.offset(airfoil, 10)
+    fixed_airfoil = clib.removeSelfCollision(fixed_airfoil)
+    fixed_poly_airfoil = clib.offset(poly_airfoil, 10)
+    fixed_poly_airfoil = clib.removeSelfCollision(fixed_poly_airfoil)
     
     fixed_airfoil.setIntporatePoints(np.linspace(0,1, 1000))
     fixed_poly_airfoil.setIntporatePoints(np.linspace(0,1, 1000))
     
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.8.2")
         plt.plot(airfoil.x, airfoil.y, "b--")
         plt.plot(collision_airfoil.x, collision_airfoil.y, "b")
-        plt.plot(fixed_airfoil.x_intp, fixed_airfoil.y_intp, "r--")
+        plt.plot(fixed_airfoil.x_intp, fixed_airfoil.y_intp, "r--", linewidth = 2)
         plt.plot(fixed_poly_airfoil.x_intp, fixed_poly_airfoil.y_intp, "g--")
-        plt.legend(["Before Offset","Collision caused by Offset", "Collision fixed", "Collision fixed (Polyline)"])
-        plt.axis("equal")   
+        plt.legend(["Before Offset","Collision caused by Offset", "Collision fixed (Spline)", "Collision fixed (Polyline)"])
+        plt.axis("equal")  
+        plt.savefig("res/Example of 4.8.2.svg")  
         plt.show()
 
 
@@ -644,16 +691,18 @@ def example_4_9_2(plotGraph):
     
     #グラフを描画
     if plotGraph == True:  
-        plt.figure()
-        plt.plot(l0.x, l0.y, "b")
+        plt.figure(figsize=(10.0, 8.0))
+        plt.plot(l0.x, l0.y, "r")
         plt.plot(l1.x, l1.y, "b")
+        plt.plot(filet.x, filet.y, "g")
         plt.plot(filet.cx, filet.cy, "go")
-        plt.plot(filet.x, filet.y, "ro-")
         plt.plot(new_l0.x, new_l0.y, "ro--")
-        plt.plot(new_l1.x, new_l1.y, "ro--")
-        plt.plot(filet_j.x, filet_j.y, "k")
+        plt.plot(new_l1.x, new_l1.y, "bo--")
+        #plt.plot(filet_j.x, filet_j.y, "k")
         plt.axis("equal")    
         plt.title("Example of 4.9.2")
+        plt.legend(["line0","line1", "filet", "filet centor"])
+        plt.savefig("res/Example of 4.9.2.svg")  
         plt.show()
 
 
@@ -669,7 +718,7 @@ def example_4_9_3(plotGraph):
     
     #グラフを描画
     if plotGraph == True:   
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "b")
         plt.plot(filet.x, filet.y, "r--")
@@ -677,22 +726,23 @@ def example_4_9_3(plotGraph):
         plt.plot(t_line.x, t_line.y, "r--")
         plt.axis("equal")
         plt.title("Example of 4.9.3")
+        plt.savefig("res/Example of 4.9.3_1.svg") 
         plt.show()
     
     
 def example_4_9_4(plotGraph):
     # 交差するスプラインを2つ作成
-    spline1 = clib.Spline(af.NACA2412_X[0:52], af.NACA2412_Y[0:52] - 0.03)
-    spline2 = clib.Spline(af.NACA2412_X[51:-1], af.NACA2412_Y[51:-1] + 0.03)
+    spline1 = clib.Spline(af.NACA2412_X[20:52], af.NACA2412_Y[20:52] - 0.03)
+    spline2 = clib.Spline(af.NACA2412_X[51:-20], af.NACA2412_Y[51:-20] + 0.03)
 
     # スプラインどうしの交点を、r=0.005でフィレットする。
     # フィレット箇所は、スプライン1に対して第一象限とする
     # 複数交点を持つ場合に備え、探索始点はスプライン1、スプライン2の10%位置とする    
-    t_spline1, t_spline2, filet = clib.filetCurves(spline1, spline2, 0.005, 1, 0.1, 0.1)
+    t_spline1, t_spline2, filet = clib.filetCurves(spline1, spline2, 0.005, 1, 0.4, 0.4)
     
     #グラフを描画
     if plotGraph == True:    
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.plot(spline1.x, spline1.y, "b")
         plt.plot(spline2.x, spline2.y, "b")
         plt.plot(filet.x, filet.y, "r--")
@@ -700,6 +750,7 @@ def example_4_9_4(plotGraph):
         plt.plot(t_spline2.x, t_spline2.y, "r--")        
         plt.axis("equal")
         plt.title("Example of 4.9.4")
+        plt.savefig("res/Example of 4.9.4_1.svg") 
         plt.show()
     
   
@@ -721,8 +772,9 @@ def example_4_10(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.10")
+        plt.plot(x0, y0, "go")
         plt.plot(line.x, line.y, "b--")
         plt.plot(spline.x, spline.y, "b--")
         plt.plot(circle.x, circle.y, "b--")
@@ -730,8 +782,9 @@ def example_4_10(plotGraph):
         plt.plot(s_spline.x, s_spline.y, "r")
         plt.plot(s_circle.x, s_circle.y, "r")
         plt.axis("equal")
-        plt.legend(["Line", "Spline", "Circle", \
+        plt.legend(["Scaled Center","Line", "Spline", "Circle", \
                     "Scaled line", "Scaled spline", "Scaled circle"])
+        plt.savefig("res/Example of 4.10.svg") 
         plt.show()        
 
 
@@ -739,19 +792,31 @@ def example_4_11_1(plotGraph):
     # 線分を作成
     line = clib.SLine([-3, 2], [1, 5])
 
-    # x:-1~0.5の範囲でトリム
+    # x:-1~0の範囲でトリム
     x_st = -1
-    x_ed = 0.5
-    t_line = clib.trim(line, x_st, x_ed)
+    x_ed = 0
+    xt_line = clib.trim(line, x_st, x_ed, "x")
+    
+    # y:4~4.5の範囲でトリム
+    y_st = 4
+    y_ed = 4.5
+    yt_line = clib.trim(line, y_st, y_ed, "y")
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.11.1")
-        plt.plot(line.x, line.y, "b--")
-        plt.plot(t_line.x, t_line.y, "r")
+        plt.plot(line.x, line.y, "b")
+        plt.plot(xt_line.x, xt_line.y, "r--", linewidth = 3)
+        plt.plot(yt_line.x, yt_line.y, "g--", linewidth = 3)
         plt.axis("equal")
-        plt.legend(["Line", "Trimed Line"])
+        plt.legend(["Original Line", "Trimed Line by X", "Trimed Line by Y"])
+        
+        plt.plot([x_st, x_st], line.y, "k--")
+        plt.plot([x_ed, x_ed], line.y, "k--")
+        plt.plot(line.x, [y_st, y_st],  "k--")
+        plt.plot(line.x, [y_ed, y_ed],  "k--")
+        plt.savefig("res/Example of 4.11.1.svg") 
         plt.show()         
 
 
@@ -779,7 +844,7 @@ def example_4_11_2(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.11.2")
         plt.plot(spline1.x, spline1.y, "b--")
         plt.plot(spline2.x, spline2.y, "b--")
@@ -789,6 +854,7 @@ def example_4_11_2(plotGraph):
         plt.plot(t_airfoil.x, t_airfoil.y, "g")
         plt.plot([0.5, 0.5], [-0.1, 0.1], "g--")
         plt.axis("equal")
+        plt.savefig("res/Example of 4.11.2.svg") 
         plt.show()          
 
 
@@ -806,12 +872,13 @@ def example_4_11_3(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.11.4")
         plt.plot(circle.x, circle.y, "b--")
         plt.plot(t_arc.x, t_arc.y, "r")
         plt.axis("equal")
         plt.legend(["Circle", "Trimed Circle"])
+        plt.savefig("res/Example of 4.11.3.svg") 
         plt.show()       
 
 
@@ -831,12 +898,13 @@ def example_4_11_4(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.11.4")
         plt.plot(ellipse.x, ellipse.y, "b--")
         plt.plot(t_spline.x, t_spline.y, "r")
         plt.axis("equal")
         plt.legend(["Ellipse", "Trimed Ellipse"])
+        plt.savefig("res/Example of 4.11.4.svg") 
         plt.show()       
         
         
@@ -846,13 +914,20 @@ def example_4_12_1(plotGraph):
     spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
     arc = clib.Arc(1, -0.5, -0.5, np.radians(20), np.radians(60))
     ellipse = clib.Ellipse(0.5, 0.25, 0, 1, 1)
+    circle = clib.Circle(0.5, -1, -1)
+    polyline = clib.Polyline(af.NACA2412_X, af.NACA2412_Y)
+    polyline = clib.move(polyline, 0, -1)
     
     # スクリプト出力用の文字列を作成
     scr = ""
     scr += clib.exportLine2CommandScript(line)
     scr += clib.exportLine2CommandScript(spline)
+    scr += clib.exportLine2CommandScript(circle)
     scr += clib.exportLine2CommandScript(arc)
+    scr += clib.exportLine2CommandScript(polyline)
     scr += clib.exportLine2CommandScript(ellipse)
+    
+    
     
     # スクリプト出力用の文字列を確認
     print("AutoCAD Script file is bellow")
@@ -865,13 +940,16 @@ def example_4_12_1(plotGraph):
     
     # グラフを描画
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.title("Example of 4.12.1")
         plt.plot(line.x, line.y, "b")
         plt.plot(spline.x, spline.y, "b")
         plt.plot(arc.x, arc.y, "b")
         plt.plot(ellipse.x, ellipse.y, "b")
+        plt.plot(polyline.x, polyline.y, "b")
+        plt.plot(circle.x, circle.y, "b")
         plt.axis("equal")
+        plt.savefig("res/Example of 4.12.1.svg") 
         plt.show()          
     
 
@@ -912,6 +990,7 @@ def example_4_12_2(plotGraph):
         out = MatplotlibBackend(ax)
         Frontend(ctx, out).draw_layout(msp, finalize=True)
         plt.title("Example of 4.12.2")
+        plt.savefig("res/Example of 4.12.2.svg") 
         fig.show()        
 
 
@@ -1262,9 +1341,7 @@ if __name__ == '__main__':
     example_3_7(True)
     example_3_9_1(True)
     example_3_9_2(True)
-    """
     example_3_9_3(True)
-    """
     example_4_1(True)
     example_4_2(True)
     example_4_3(True)
@@ -1282,7 +1359,9 @@ if __name__ == '__main__':
     example_4_11_3(True)
     example_4_11_4(True)
     example_4_12_1(True)
+    """
     example_4_12_2(True)
+    """
     example_5_1(True)
     example_5_2_1(True)
     example_5_2_2(True)
