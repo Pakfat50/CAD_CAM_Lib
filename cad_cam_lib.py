@@ -285,7 +285,7 @@ class LineGroup(Line):
             self.update()
             
     def sort(self, start_num):
-        connect_lines = sortLines(self.lines, start_num)
+        connect_lines = sortLines(self.lines, start_num, True)
         self.lines = connect_lines
         self.update()
         
@@ -1531,62 +1531,17 @@ def importLinesFromDxf(msp, dxf_object_type):
         return line_list     
 
 
-def sortLines(line_list, num_st):
+def sortLines(line_list, num_st, join):
     i = 0
     norm_min = np.inf
     line = line_list[num_st]
     used_num = [num_st]
-    x0 = line.ed[0]
-    y0 = line.ed[1]
-    flag_invert = False
-    
-    sorted_lines = [line]
-
-    while i < len(line_list)-1:
-        norm_min = np.inf
-        j = 0
-        while j < len(line_list):          
-            if j in used_num:
-                pass
-            else:
-                line = line_list[j]
-                norm_st = norm(x0, y0, line.st[0], line.st[1])
-                norm_ed = norm(x0, y0, line.ed[0], line.ed[1])
-
-                if min(norm_st, norm_ed) < norm_min:
-                    num = j
-                    norm_min = min(norm_st, norm_ed)
-                    if norm_st < norm_ed:
-                        flag_invert = False
-                    else:
-                        flag_invert = True
-            j += 1
-        used_num.append(num)
-        line = line_list[num]
-        if flag_invert == False:
-            x0 = line.ed[0]
-            y0 = line.ed[1]
-            sorted_lines.append(line)
-        else:
-            x0 = line.st[0]
-            y0 = line.st[1]
-            sorted_lines.append(invert(line))
-        i += 1
-        
-    return sorted_lines
-
-
-def detectCloseLines(line_list, num_st):
-    i = 0
-    norm_min = np.inf
-    line = line_list[num_st]
-    used_num = [num_st]
-    x0 = line.ed[0]
-    y0 = line.ed[1]
+    x1 = line.ed[0]
+    y1 = line.ed[1]
     flag_invert = False
     
     lines = [line]
-    line_group_list = []
+    lines_list = []
 
     while i < len(line_list)-1:
         norm_min = np.inf
@@ -1596,8 +1551,8 @@ def detectCloseLines(line_list, num_st):
                 pass
             else:
                 line = line_list[j]
-                norm_st = norm(x0, y0, line.st[0], line.st[1])
-                norm_ed = norm(x0, y0, line.ed[0], line.ed[1])
+                norm_st = norm(x1, y1, line.st[0], line.st[1])
+                norm_ed = norm(x1, y1, line.ed[0], line.ed[1])
 
                 if min(norm_st, norm_ed) < norm_min:
                     num = j
@@ -1607,27 +1562,39 @@ def detectCloseLines(line_list, num_st):
                     else:
                         flag_invert = True
             j += 1
-        if np.abs(norm_min) > DIST_NEAR:
-            line_group_list.append(LineGroup(lines))
-            lines = []
+        if join == False:
+            if np.abs(norm_min) > DIST_NEAR:
+                lines_list.append(lines)
+                lines = []
         
         line = line_list[num]
         if flag_invert == False:
-            x0 = line.ed[0]
-            y0 = line.ed[1]
+            x1 = line.ed[0]
+            y1 = line.ed[1]
             lines.append(line)
         else:
-            x0 = line.st[0]
-            y0 = line.st[1]
+            x1 = line.st[0]
+            y1 = line.st[1]
             lines.append(invert(line))
                 
         used_num.append(num)
         i += 1
     
-    line_group_list.append(LineGroup(lines))
+    if join == False:   
+        lines_list.append(lines)
+        return lines_list
+    else:
+        return lines
+
+
+def detectLineGroups(line_list, num_st):
+    lines_list = sortLines(line_list, num_st, False)
+    
+    line_group_list = []
+    for lines in lines_list:
+        line_group_list.append(LineGroup(lines))
     
     return line_group_list
-
 
 def getInclusionList(parent_line, child_line):
     i = 0
@@ -1758,5 +1725,26 @@ def removeSelfCollision(line):
         return line
 
 
+def genGCodeStr(x,y,z, cut_speed, code):
+    code_str = ""
+    if len(x) == len(y) == len(z):
+        i = 0
+        while i < len(x):
+            code_str += "%s X%s Y%s Z%s F%s\n"%(code, format(x[i], '.6f'), format(y[i], '.6f'), \
+                                                 format(z[i], '.6f'), format(cut_speed, '.1f'))
+            i += 1
+        return code_str
+
+
+def genGCodeStrHW(x,y,u,v, cut_speed, code):
+    code_str = ""
+    if len(x) == len(y) == len(u) == len(v):
+        i = 0
+        while i < len(x):
+            code_str += "%s X%s Y%s U%s V%s F%s\n"%(code, format(x[i], '.6f'), format(y[i], '.6f'), \
+                                                     format(u[i], '.6f'), format(v[i], '.6f'), \
+                                                     format(cut_speed, '.1f'))
+            i += 1
+        return code_str
     
 

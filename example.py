@@ -1021,7 +1021,7 @@ def example_5_2_1(plotGraph):
     splines = clib.importLinesFromDxf(msp, "SPLINE")
     
     all_lines = lines + splines
-    line_group_list = clib.detectCloseLines(all_lines, 2)
+    line_group_list = clib.detectLineGroups(all_lines, 2)
     
     i = 0
     while i < len(line_group_list):
@@ -1036,7 +1036,23 @@ def example_5_2_1(plotGraph):
     colors_st = ["bo", "go", "ro", "co", "mo", "yo", "ko", "bo", "go"]
 
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
+        i = 0
+        for line in all_lines:
+            plt.plot(line.x, line.y, colors[i])
+            plt.plot(line.st[0], line.st[1], colors_st[i])
+            x0,y0,x1,y1 = getQuiver(line)
+            plt.quiver(x0,y0,x1,y1, \
+               angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+            i += 1
+            
+        plt.axis("equal")
+        plt.title("Example of 5.2.1 (Before sort)")
+        plt.savefig("res/Example of 5.2.1_1.svg")
+        plt.show()
+        
+        
+        plt.figure(figsize=(10.0, 8.0))
         i = 0
         while i < len(line_group_list):
             line_group = line_group_list[i]
@@ -1049,7 +1065,8 @@ def example_5_2_1(plotGraph):
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
             i += 1
         plt.axis("equal")
-        plt.title("Example of 5.2.1")
+        plt.title("Example of 5.2.1 (After sort)")
+        plt.savefig("res/Example of 5.2.1_2.svg")
         plt.show()
     return line_group_list
 
@@ -1083,7 +1100,7 @@ def example_5_2_2(plotGraph):
     colors_st = ["bo", "go", "ro", "co", "mo", "yo", "ko", "bo", "go"]
     
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         i = 0
         while i < len(line_group_list):
             line_group = line_group_list[i]
@@ -1096,6 +1113,7 @@ def example_5_2_2(plotGraph):
                    angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
             i += 1
         plt.title("Example of 5.2.2")
+        plt.savefig("res/Example of 5.2_2.svg")
         plt.axis("equal")
         plt.show()
 
@@ -1108,7 +1126,7 @@ def example_5_3_1_1(plotGraph):
     camber = clib.scale(camber, 300, 0, 0)
 
     circle1 = clib.Circle(10, 100, camber.getYfromX(100))
-    circle2 = clib.Circle(250, 100, camber.getYfromX(100))
+    circle2 = clib.Circle(210, 100, camber.getYfromX(100))
     circle3 = clib.Circle(30, 100, camber.getYfromX(100))
 
     is_inside1 = clib.checkInclusion(airfoil, circle1)
@@ -1137,7 +1155,7 @@ def example_5_3_1_1(plotGraph):
         print("Circle3 is colliding with Airfoil")   
     
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         x1_i, y1_i, x1_o, y1_o = clib.getInclusionList(airfoil, circle1)
         x2_i, y2_i, x2_o, y2_o = clib.getInclusionList(airfoil, circle2)
         x3_i, y3_i, x3_o, y3_o = clib.getInclusionList(airfoil, circle3)
@@ -1148,30 +1166,31 @@ def example_5_3_1_1(plotGraph):
         
         i = 0
         while i < len(x1_i):
-            plt.plot(x1_i[i], y1_i[i], "k--")
+            plt.plot(x1_i[i], y1_i[i], "c--", linewidth = 3)
             i += 1
         i = 0
         while i < len(x1_o):
-            plt.plot(x1_o[i], y1_o[i], "r--")
+            plt.plot(x1_o[i], y1_o[i], "r--", linewidth = 3)
             i += 1    
         i = 0
         while i < len(x2_i):
-            plt.plot(x2_i[i], y2_i[i], "k--")
+            plt.plot(x2_i[i], y2_i[i], "c--", linewidth = 3)
             i += 1
         i = 0
         while i < len(x2_o):
-            plt.plot(x2_o[i], y2_o[i], "r--")
+            plt.plot(x2_o[i], y2_o[i], "r--", linewidth = 3)
             i += 1
         i = 0
         while i < len(x3_i):
-            plt.plot(x3_i[i], y3_i[i], "k--")
+            plt.plot(x3_i[i], y3_i[i], "c--", linewidth = 3)
             i += 1
         i = 0
         while i < len(x3_o):
-            plt.plot(x3_o[i], y3_o[i], "r--")
+            plt.plot(x3_o[i], y3_o[i], "r--", linewidth = 3)
             i += 1                
         plt.title("Example of 5.3.1.1")
         plt.axis("equal")    
+        plt.savefig("res/Example of 5.3.1_1.svg")
         plt.show()
 
 
@@ -1187,43 +1206,68 @@ def example_5_3_1_2(plotGraph):
     # 外側にあるオブジェクトは反時計回りに、内側にあるオブジェクトは時計回りにカットする
     if circle_is_inside == 0:
         if circle.ccw == False:
-            circle = clib.invert(circle)
+            c_circle = clib.invert(circle)
+        else:
+            c_circle = circle
     elif circle_is_inside == 1:
         if circle.ccw == True:
-            circle = clib.invert(circle)
+            c_circle = clib.invert(circle)
+        else:
+            c_circle = circle
     else:
         print("Collision detect!")
 
     if airfoil_is_inside == 0:
         if airfoil.ccw == False:
-            airfoil = clib.invert(airfoil)
+            c_airfoil = clib.invert(airfoil)
+        else:
+            c_airfoil = airfoil
     elif airfoil_is_inside == 1:
         if airfoil.ccw == True:
-            airfoil = clib.invert(airfoil)
+            c_airfoil = clib.invert(airfoil)
+        else:
+            c_airfoil = airfoil            
     else:
         print("Collision detect!")
         
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.plot(airfoil.x, airfoil.y, "b")
         plt.plot(circle.x, circle.y, "b")
         x0,y0,x1,y1 = getQuiver(airfoil)
         plt.quiver(x0,y0,x1,y1, \
-                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+                   angles='xy',scale_units='xy',scale=0.04, width=0.006, color = 'red')
         
         x0,y0,x1,y1 = getQuiver(circle)
         plt.quiver(x0,y0,x1,y1, \
-                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+                   angles='xy',scale_units='xy',scale=0.04, width=0.006, color = 'red')
         plt.axis("equal")
-        plt.title("Example of 5.3.1.2")
+        plt.title("Example of 5.3.1.2 (Before invert)")
+        plt.savefig("res/Example of 5.3.1_2_1.svg")
         plt.show()
+
+        plt.figure(figsize=(10.0, 8.0))
+        plt.plot(c_airfoil.x, c_airfoil.y, "b")
+        plt.plot(c_circle.x, c_circle.y, "b")
+        x0,y0,x1,y1 = getQuiver(c_airfoil)
+        plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=0.04, width=0.006, color = 'red')
+        
+        x0,y0,x1,y1 = getQuiver(c_circle)
+        plt.quiver(x0,y0,x1,y1, \
+                   angles='xy',scale_units='xy',scale=0.04, width=0.006, color = 'red')
+        plt.axis("equal")
+        plt.title("Example of 5.3.1.2 (After invert)")
+        plt.savefig("res/Example of 5.3.1_2_2.svg")
+        plt.show()
+
 
 
 def example_5_3_2(plotGraph):
     airfoil = clib.Airfoil(af.NACA2412_X, af.NACA2412_Y)
     airfoil = clib.scale(airfoil, 300, 0, 0)
     r = 10;
-    cx = -100
+    cx = 100
     circle = clib.Circle(r, cx, 5)
     
     circle_is_inside = clib.checkInclusion(airfoil, circle)
@@ -1263,20 +1307,22 @@ def example_5_3_2(plotGraph):
         print("Collision detect!")
     
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         plt.plot(airfoil.x, airfoil.y, "b")
-        plt.plot(circle.x, circle.y, "b")
         plt.plot(o_airfoil.x, o_airfoil.y, "b--")
+        plt.plot(circle.x, circle.y, "b")
         plt.plot(o_circle.x, o_circle.y, "b--")
         x0,y0,x1,y1 = getQuiver(airfoil)
         plt.quiver(x0,y0,x1,y1, \
-                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+                   angles='xy',scale_units='xy',scale=0.04, width=0.006, color = 'red')
         
         x0,y0,x1,y1 = getQuiver(circle)
         plt.quiver(x0,y0,x1,y1, \
-                   angles='xy',scale_units='xy',scale=0.1, width=0.003, color = 'black')
+                   angles='xy',scale_units='xy',scale=0.04, width=0.006, color = 'red')
         plt.axis("equal")  
         plt.title("Example of 5.3.2")
+        plt.legend(["Original Line", "Offset Line"])
+        plt.savefig("res/Example of 5.3.2_2.svg")
         plt.show()
 
     
@@ -1287,7 +1333,7 @@ def example_5_3_3(plotGraph):
     splines = clib.importLinesFromDxf(msp, "SPLINE")
 
     all_lines = lines + splines
-    line_group_list = clib.detectCloseLines(all_lines, 2)
+    line_group_list = clib.detectLineGroups(all_lines, 2)
     d = 2
     
     i = 0
@@ -1302,7 +1348,7 @@ def example_5_3_3(plotGraph):
         i += 1
     
     if plotGraph == True:
-        plt.figure()
+        plt.figure(figsize=(10.0, 8.0))
         for line_group in line_group_list:
             for line in line_group.lines:
                 plt.plot(line.x, line.y, "b")
@@ -1318,7 +1364,63 @@ def example_5_3_3(plotGraph):
         
         plt.axis("equal")
         plt.title("Example of 5.3.3")
+        plt.savefig("res/Example of 5.3.3.svg")
         plt.show()
+
+
+def example_5_4(plotGraph):
+    doc = ez.readfile("test1.dxf")
+    msp = doc.modelspace()
+    lines = clib.importLinesFromDxf(msp, "LINE")
+    splines = clib.importLinesFromDxf(msp, "SPLINE")
+
+    all_lines = lines + splines
+    line_group_list = clib.detectLineGroups(all_lines, 2)
+    d = 2
+    
+    i = 0
+    o_line_group_list = []
+    for line_group in line_group_list:
+        if line_group.ccw == False:
+            line_group = clib.invert(line_group)
+        o_line_group = clib.offset(line_group, -d)
+        o_line_group.insertFilet()
+        o_line_group_list.append(o_line_group)
+        i += 1
+    
+    # Z軸の値を定義
+    z_high = 60
+    z_low = 0
+    
+    #送り速度の定義
+    fs = 1000 # 早送り
+    cs = 300 # 加工
+    ms = 100 # ミリング速度
+    
+    # 加工前のマシン設定
+    g_code_str = "T1\nG17 G49 G54 G80 G90 G94 G21 G40\n"
+    
+    i = 0
+    while i < len(o_line_group_list):
+        line_group = o_line_group_list[i]
+        # 開始点へ移動
+        g_code_str += clib.genGCodeStr([line_group.st[0]], [line_group.st[1]], [z_high], fs, "G0")
+        # Z軸をミリング
+        g_code_str += clib.genGCodeStr([line_group.st[0]], [line_group.st[1]], [z_low], ms, "G1")
+        # 加工
+        g_code_str += clib.genGCodeStr(line_group.x, line_group.y, [z_low]*len(line_group.x), cs, "G1")
+        # Z方向に退避
+        g_code_str += clib.genGCodeStr([line_group.ed[0]], [line_group.ed[1]], [z_high], ms, "G1")
+        i += 1
+        
+    # Gコード出力用の文字列を確認
+    print("G Code is bellow")
+    print(g_code_str)
+    
+    # スクリプトファイル（.scr）として保存
+    f = open("example_5_4.nc", "w")
+    f.writelines(g_code_str)
+    f.close()
 
 
 def getQuiver(line):
@@ -1329,47 +1431,46 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
-    """
+    
     example_3_2_1_1(True)
-    example_3_2_2_1(True)
-    example_3_5_1(True)
-    example_3_5_2(True)
-    example_3_5_3(True)
-    example_3_6_1_1(True)
-    example_3_6_1_2(True)
-    example_3_6_1_3(True)
-    example_3_6_2(True)
-    example_3_7(True)
-    example_3_9_1(True)
-    example_3_9_2(True)
-    example_3_9_3(True)
-    example_4_1(True)
-    example_4_2(True)
-    example_4_3(True)
-    example_4_4(True)
-    example_4_6(True)
-    example_4_7(True)
-    example_4_8_1(True)
-    example_4_8_2(True)
-    example_4_9_2(True)
-    example_4_9_3(True)
-    example_4_9_4(True)
-    example_4_10(True)
-    example_4_11_1(True)
-    example_4_11_2(True)
-    example_4_11_3(True)
-    example_4_11_4(True)
-    example_4_12_1(True)
-    example_4_12_2(True)
-    """
-    example_5_1(True)
-    """
-    example_5_2_1(True)
-    example_5_2_2(True)
-    example_5_3_1_1(True)
-    example_5_3_1_2(True)
-    example_5_3_2(True)
-    example_5_3_3(True)
-    """
+    #example_3_2_2_1(True)
+    #example_3_5_1(True)
+    #example_3_5_2(True)
+    #example_3_5_3(True)
+    #example_3_6_1_1(True)
+    #example_3_6_1_2(True)
+    #example_3_6_1_3(True)
+    #example_3_6_2(True)
+    #example_3_7(True)
+    #example_3_9_1(True)
+    #example_3_9_2(True)
+    #example_3_9_3(True)
+    #example_4_1(True)
+    #example_4_2(True)
+    #example_4_3(True)
+    #example_4_4(True)
+    #example_4_6(True)
+    #example_4_7(True)
+    #example_4_8_1(True)
+    #example_4_8_2(True)
+    #example_4_9_2(True)
+    #example_4_9_3(True)
+    #example_4_9_4(True)
+    #example_4_10(True)
+    #example_4_11_1(True)
+    #example_4_11_2(True)
+    #example_4_11_3(True)
+    #example_4_11_4(True)
+    #example_4_12_1(True)
+    #example_4_12_2(True)
+    #example_5_1(True)
+    #example_5_2_1(True)
+    #example_5_2_2(True)
+    #example_5_3_1_1(True)
+    #example_5_3_1_2(True)
+    #example_5_3_2(True)
+    #example_5_3_3(True)
+    #example_5_4(True)
+
     
     
