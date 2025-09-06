@@ -18,6 +18,188 @@ import copy
 import airfoilData as af
 import cad_cam_lib as clib
 
+
+def meka_rib_demo(plotGraph):
+    ############################ リブ情報 ###################################
+    ration = 0.3 # 翼型混合比
+    chord = 600 # コード長 [mm]
+    t_plank = 2 # プランク厚 [mm]
+    
+    x_plank_u = chord*0.7 # 上面プランク端 [mm]
+    x_plank_l = chord*0.2 # 下面プランク端 [mm]
+    
+    st_width = 3 # ストリンガー幅 [mm]
+    st_hight = 4 # ストリンガー高 [mm]
+    x_st1 = x_plank_u-20 #[mm]
+    x_st2 = x_plank_l-20 #[mm]
+    
+    cx = chord*0.35 # 桁穴位置 [mm]
+    cr = 25 # 桁穴径（半径）
+    
+    tr_dist = 10 # トラス肉抜き幅 [mm]
+    tr_angle = np.radians(60) # トラス角度 [rad]
+    fr = 6 # フィレット半径
+    
+    rot = np.radians(3) # 取付迎角 [rad]
+    
+    ############################ 翼型生成 #################################
+    # DAE51, NACA2412、およびそれらをXFLRで20%混合した座標点を読み込み
+    x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 1)
+    x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 1)
+    
+    # DAE51とNACA2412の翼形クラスのインスタンスを作成
+    dae51 = clib.Airfoil(x1, y1)
+    naca2412 = clib.Airfoil(x2, y2)
+    
+    ############################ 外形生成 #################################
+    # 翼型混合&もととなるスプライン作成
+    airfoil = clib.mixAirfoilXFLR(dae51, naca2412, ration)
+    outer = clib.Spline(airfoil.x_intp, airfoil.y_intp) # datファイルは座標点が荒いので補完座標で作成
+    upper = clib.Spline(airfoil.ux, airfoil.uy)
+    lower = clib.Spline(airfoil.lx, airfoil.ly)
+    center = clib.Spline(airfoil.cx, airfoil.cy)
+    
+    # コード倍に拡大
+    outer = clib.scale(outer, chord, 0, 0)
+    upper = clib.scale(upper, chord, 0, 0)
+    lower = clib.scale(lower, chord, 0, 0)
+    center = clib.scale(center, chord, 0, 0)
+    
+    ############################ プランク生成 ###############################
+    plank = clib.offset(outer, t_plank)
+    
+    y_plank_u = max(plank.getYfromX(x_plank_u))
+    y_plank_l = min(plank.getYfromX(x_plank_l))
+    y_outer_u = max(outer.getYfromX(x_plank_u))
+    y_outer_l = min(outer.getYfromX(x_plank_l))
+    
+    u_plank_u = min(plank.getUfromX(x_plank_u))
+    u_plank_l = max(plank.getUfromX(x_plank_l))
+    plank = clib.trim(plank, u_plank_u, u_plank_l)
+    
+    line_plank_u = clib.SLine([x_plank_u, x_plank_u], [y_plank_u, y_outer_u])
+    line_plank_l = clib.SLine([x_plank_l, x_plank_l], [y_plank_l, y_outer_l])
+    
+    ############################ ストリンガー生成 ############################
+    # 今回はデモなので、Y軸に並行にストリンガーを作成する
+    y_st1_st = max(plank.getYfromX(x_st1))
+    y_st2_st = min(plank.getYfromX(x_st2))
+    y_st1_ed = max(plank.getYfromX(x_st1 + st_width))
+    y_st2_ed = min(plank.getYfromX(x_st2 + st_width))
+    st1 = clib.Polyline([x_st1, x_st1, x_st1 + st_width, x_st1 + st_width],\
+                        [y_st1_st, y_st1_st-st_hight, y_st1_ed-st_hight, y_st1_ed])
+    st2 = clib.Polyline([x_st2, x_st2, x_st2 + st_width, x_st2 + st_width],\
+                        [y_st2_st, y_st2_st+st_hight, y_st2_ed+st_hight, y_st2_ed])
+    
+    ############################ 桁穴生成 ################################
+    cy = float(center.getYfromX(cx))
+    circle = clib.Circle(cr, cx, cy)
+    
+    
+    ############################ 迎角線生成 ##############################
+    line_a0 = clib.SLine([-20, chord+20], [cy, cy])
+    line_a1 = clib.rotate(line_a0, rot, cx, cy)
+    
+    
+    ############################ トラス肉抜き　###############################
+    # トラス肉抜き デモなので前方に１区間のみ。繰り返せば全区間肉抜き可。
+    # リブ外形からトラス幅だけオフセットしたスプラインを作成
+    tr_u = clib.offset(upper, -tr_dist) # 上面
+    tr_l = clib.offset(lower, tr_dist) # 下面
+    # トラスのもととなる、桁中心を通るトラス角度の線l0を作成
+    l0_f = clib.SLine([cx - cr*np.cos(tr_angle), cx + cr*np.cos(tr_angle)],
+                      [cy - cr*np.sin(tr_angle), cy + cr*np.sin(tr_angle)])
+    
+    # l0を前方向にオフセットした線l1を作成
+    l1_f = clib.offset(l0_f, cr + tr_dist)
+    # l1と上下面のスプラインの交点を算出
+    u1_f, x1_f, y1_f = clib.getCrossPointFromCurveLine(l1_f.f_line, tr_u.f_curve, 0.5) # 上面
+    u2_f, x2_f, y2_f = clib.getCrossPointFromCurveLine(l1_f.f_line, tr_l.f_curve, 0.5) # 下面
+    # 算出した交点で、l1をトリム
+    l1_f = clib.trim(l1_f, x1_f, x2_f, lineAxis = "x") 
+    
+    # l1の端点（下面のスプラインとの交点）を通り、角度が-トラス角の線l2を作成
+    l2_f = clib.SLine([x2_f - cr*np.cos(-tr_angle), x2_f + cr*np.cos(-tr_angle)],
+                      [y2_f - cr*np.sin(-tr_angle), y2_f + cr*np.sin(-tr_angle)])
+    # l2と上面のスプラインの交点を算出
+    u3_f, x3_f, y3_f = clib.getCrossPointFromCurveLine(l2_f.f_line, tr_u.f_curve, 0.5) 
+    # 算出した交点でl2をトリム
+    l2_f = clib.trim(l2_f, x2_f, x3_f, lineAxis = "x")
+    
+    # トラスの残りの１辺について、算出した交点をつなぐ線l3を算出
+    l3_f = clib.SLine([x3_f, x1_f], [y3_f, y1_f])
+    
+    # l1~l3をの間のフィレットを作成
+    l1_f, l2_f, f_12 = clib.filetLines(l1_f, l2_f, fr)
+    l3_f, l1_f, f_31 = clib.filetLines(l3_f, l1_f, fr)
+    l2_f, l3_f, f_23 = clib.filetLines(l2_f, l3_f, fr)
+    
+    
+    ############################ DXFへ出力 ################################
+    # dxfファイルに保存
+    # ezdxfのモデルワークスペースオブジェクトを生成
+    doc = ez.new('R2010', setup=True)
+    msp = doc.modelspace()
+    
+    # レイヤーを追加
+    attr = {'color': 0, #色
+            'lineweight':2, #線幅
+            'linetype': 'Continuous' #線種
+    }
+    doc.layers.new(name="layer0",  dxfattribs = attr) # レイヤーを追加
+    
+    # モデルワークスペースに作成した直線とスプラインと楕円を追加
+    clib.exportLine2ModeWorkSpace(msp, "layer0", outer)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", center, color = 3, linetypes="CENTER")
+    clib.exportLine2ModeWorkSpace(msp, "layer0", plank)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", line_plank_u)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", line_plank_l)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", st1)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", st2)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", circle)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", line_a0)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", line_a1, color = 1 , linetypes="CENTER")
+    clib.exportLine2ModeWorkSpace(msp, "layer0", l1_f)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", l2_f)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", l3_f)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", f_12)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", f_31)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", f_23)
+    
+    # dxfを出力
+    doc.saveas('example_rib_generation.dxf')
+    
+    ############################ 終了 #################################
+    
+    
+    if plotGraph == True:
+        plt.figure(figsize=(10.0, 8.0))
+        plt.plot(outer.x, outer.y,"b")
+        #plt.plot(upper.x, upper.y)
+        #plt.plot(lower.x, lower.y)
+        plt.plot(center.x, center.y, "g--")
+        plt.plot(plank.x, plank.y, "b")
+        plt.plot(line_plank_u.x, line_plank_u.y, "b")
+        plt.plot(line_plank_l.x, line_plank_l.y, "b")
+        plt.plot(st1.x, st1.y, "b")
+        plt.plot(st2.x, st2.y, "b")
+        plt.plot(circle.x, circle.y, "b")
+        plt.plot(line_a0.x, line_a0.y, "b--")
+        plt.plot(line_a1.x, line_a1.y, "r--")
+        #plt.plot(tr_u.x, tr_u.y, "b--")
+        #plt.plot(tr_l.x, tr_l.y, "b--")
+        #plt.plot(l0_f.x, l0_f.y, "b--")
+        plt.plot(l1_f.x, l1_f.y, "b")
+        plt.plot(l2_f.x, l2_f.y, "b")
+        plt.plot(l3_f.x, l3_f.y, "b")
+        plt.plot(f_12.x, f_12.y, "b")
+        plt.plot(f_31.x, f_31.y, "b")
+        plt.plot(f_23.x, f_23.y, "b")
+        plt.axis("equal")
+        plt.title("Rib generation Example")
+        plt.savefig("res/Example of Rib_generation.svg")
+
+
 def example_3_2_1_1(plotGraph):
     #座標点変化量による接線の傾き算出
     m1 = clib.getM1(af.NACA2412_X, af.NACA2412_Y)
@@ -46,6 +228,7 @@ def example_3_2_1_1(plotGraph):
         plt.savefig("res/Example of 3.2.1.1.svg")
         
     return m1, sita1, m1_atan2 
+
 
 def example_3_2_2_1(plotGraph):
     #座標点変化量による垂線の傾き算出
@@ -142,6 +325,29 @@ def example_3_5_3(plotGraph):
         plt.show()
         plt.savefig("res/Example of 3.5.3.svg")
     return  spline1, spline2, u_root1, s_root1
+
+
+def example_3_5_4(plotGraph):
+    # スプラインを作成
+    spline = clib.Spline(af.NACA2412_X, af.NACA2412_Y)
+    o_spline = clib.offset(spline, 0.03)
+
+    #　交点を算出
+    u_root0, s_root0, x_root0, y_root0 = clib.getCrossPointFromSelfCurve(o_spline.f_curve, 0, 1)
+    u_root1, s_root1, x_root1, y_root1 = clib.getCrossPointFromSelfCurve(o_spline.f_curve, 0.45, 0.55)
+
+    #　グラフを描画
+    if plotGraph == True:
+        plt.figure(figsize=(10.0, 8.0))
+        plt.title("Example of 3.5.3")
+        plt.plot(spline.x, spline.y, "b")
+        plt.plot(o_spline.x, o_spline.y, "r")
+        plt.plot(x_root0, y_root0, "go")
+        plt.plot(x_root1, y_root1, "ko")
+        plt.axis("equal")  
+        plt.legend(["spline", "offset spline", "Cross Point1", "Cross Point2"])
+        plt.show()
+        plt.savefig("res/Example of 3.5.4.svg")
 
 
 def example_3_6_1_1(plotGraph):
@@ -266,8 +472,8 @@ def example_3_6_2(plotGraph):
     #グラフを描画
     if plotGraph == True:
         plt.figure(figsize=(10.0, 8.0)) 
-        plt.plot(u2, u1, "b")
-        plt.plot(u2, u2, "r")
+        plt.plot(u2, u2, "b")
+        plt.plot(u2, u1, "r")
         plt.legend(["Linear", "Cosine"])
         plt.axis("equal") 
         plt.title("Example of 3.6.2")
@@ -1431,12 +1637,13 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
-    
-    example_3_2_1_1(True)
+    meka_rib_demo(True)
+    #example_3_2_1_1(True)
     #example_3_2_2_1(True)
     #example_3_5_1(True)
     #example_3_5_2(True)
     #example_3_5_3(True)
+    #example_3_5_4(True)
     #example_3_6_1_1(True)
     #example_3_6_1_2(True)
     #example_3_6_1_3(True)

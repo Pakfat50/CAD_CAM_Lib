@@ -34,8 +34,8 @@ class Line:
         self.x = np.array(x) 
         self.y = np.array(y)
         self.line_type = lineType
-        self.st = np.array([x[0], y[0]])
-        self.ed = np.array([x[-1], y[-1]])
+        self.st = np.array([float(x[0]), float(y[0])])
+        self.ed = np.array([float(x[-1]), float(y[-1])])
         self.length = getLength(x, y)
         # 時計回りか反時計回りかを検出
         self.ccw = detectRotation(self.x, self.y)
@@ -243,11 +243,11 @@ class Airfoil(Spline):
         
         self.xmin = max(min(self.ux), min(self.lx))
         self.xmax = min(max(self.ux), max(self.lx))
-        self.f_upper = intp.interp1d(self.ux, self.uy, kind = 'cubic')
-        self.f_lower = intp.interp1d(self.lx, self.ly, kind = 'cubic')
+        self.f_upper = intp.interp1d(self.ux, self.uy, kind = 'cubic', fill_value='extrapolate')
+        self.f_lower = intp.interp1d(self.lx, self.ly, kind = 'cubic', fill_value='extrapolate')
         self.cx = getXCosine(self.xmin, self.xmax, int(N_AIRFOIL_INTERPOLATE/2))
         self.cy = (self.f_upper(self.cx) + self.f_lower(self.cx))/2.0
-        self.f_center = intp.interp1d(self.cx, self.cy, kind = 'cubic')
+        self.f_center = intp.interp1d(self.cx, self.cy, kind = 'cubic', fill_value='extrapolate')
 
 
 class LineGroup(Line):
@@ -378,7 +378,7 @@ def getLength(x, y):
     i = 0
     length = [0]
     while i < len(x) - 1:
-        length.append(norm(x[i], y[i], x[i+1], y[i+1]))
+        length.append(float(norm(x[i], y[i], x[i+1], y[i+1])))
         i += 1
     return np.array(length)
 
@@ -965,10 +965,12 @@ def filetLines(l0, l1, r, join=False):
         b1 = -m2_1*p2_x + p2_y
         
         f_x, f_y = getCrossPointFromLines(m2_0, b0, m2_1, b1)
+        f_x = float(f_x)
+        f_y = float(f_y)
 
         # 円弧の始点角と終点角を計算する。
-        sita_st = np.arctan2(p1_y-f_y, p1_x-f_x)
-        sita_ed = np.arctan2(p2_y-f_y, p2_x-f_x)
+        sita_st = float(np.arctan2(p1_y-f_y, p1_x-f_x))
+        sita_ed = float(np.arctan2(p2_y-f_y, p2_x-f_x))
         sita_st, sita_ed = getFiletSita(sita_st, sita_ed)
         
         # フィレットを円弧で作成する
@@ -1448,7 +1450,7 @@ def exportLine2ModeWorkSpace(msp, layer, line, \
             points = getTuplePoints(line.x_intp, line.y_intp)
             msp.add_lwpolyline(points, format="xy", close=False, dxfattribs = attr)
 
-    elif line.line_type == "Polyine":
+    elif line.line_type == "Polyline":
         points = getTuplePoints(line.x_intp, line.y_intp)
         msp.add_lwpolyline(points, format="xy", close=False, dxfattribs = attr) 
     
@@ -1456,10 +1458,15 @@ def exportLine2ModeWorkSpace(msp, layer, line, \
         msp.add_line(start=tuple(line.st), end=tuple(line.ed), dxfattribs = attr)
     
     elif line.line_type == "Arc":
-        msp.add_arc(center = (line.cx, line.cy), radius = line.r,\
-                    start_angle = np.degrees(line.sita_st), end_angle = np.degrees(line.sita_ed), \
-                    dxfattribs = attr)
-    
+        if line.ccw == True:
+            msp.add_arc(center = (line.cx, line.cy), radius = line.r,\
+                        start_angle = np.degrees(line.sita_st), end_angle = np.degrees(line.sita_ed), \
+                        dxfattribs = attr)
+        else:
+            msp.add_arc(center = (line.cx, line.cy), radius = line.r,\
+                        start_angle = np.degrees(line.sita_ed), end_angle = np.degrees(line.sita_st), \
+                        dxfattribs = attr)
+                
     elif line.line_type == "Circle":
         msp.add_circle(center = (line.cx, line.cy), radius = line.r, dxfattribs = attr)
 
