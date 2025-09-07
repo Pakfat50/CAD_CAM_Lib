@@ -43,7 +43,7 @@ def meka_rib_demo(plotGraph):
     rot = np.radians(3) # 取付迎角 [rad]
     
     ############################ 翼型生成 #################################
-    # DAE51, NACA2412、およびそれらをXFLRで20%混合した座標点を読み込み
+    # DAE51, NACA2412の座標点を読み込み
     x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 1)
     x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 1)
     
@@ -52,8 +52,9 @@ def meka_rib_demo(plotGraph):
     naca2412 = clib.Airfoil(x2, y2)
     
     ############################ 外形生成 #################################
-    # 翼型混合&もととなるスプライン作成
+    # 翼型混合
     airfoil = clib.mixAirfoilXFLR(dae51, naca2412, ration)
+    # もとになるスプラインを生成
     outer = clib.Spline(airfoil.x_intp, airfoil.y_intp) # datファイルは座標点が荒いので補完座標で作成
     upper = clib.Spline(airfoil.ux, airfoil.uy)
     lower = clib.Spline(airfoil.lx, airfoil.ly)
@@ -133,8 +134,10 @@ def meka_rib_demo(plotGraph):
     l1_f, l2_f, f_12 = clib.filetLines(l1_f, l2_f, fr)
     l3_f, l1_f, f_31 = clib.filetLines(l3_f, l1_f, fr)
     l2_f, l3_f, f_23 = clib.filetLines(l2_f, l3_f, fr)
+    ls_tras = clib.LineGroup([l1_f, l2_f, l3_f, f_12, f_23, f_31])
+    ls_tras.sort(0)
     
-    
+    """
     ############################ DXFへ出力 ################################
     # dxfファイルに保存
     # ezdxfのモデルワークスペースオブジェクトを生成
@@ -170,7 +173,7 @@ def meka_rib_demo(plotGraph):
     doc.saveas('example_rib_generation.dxf')
     
     ############################ 終了 #################################
-    
+    """
     
     if plotGraph == True:
         plt.figure(figsize=(10.0, 8.0))
@@ -189,12 +192,15 @@ def meka_rib_demo(plotGraph):
         #plt.plot(tr_u.x, tr_u.y, "b--")
         #plt.plot(tr_l.x, tr_l.y, "b--")
         #plt.plot(l0_f.x, l0_f.y, "b--")
+        """
         plt.plot(l1_f.x, l1_f.y, "b")
         plt.plot(l2_f.x, l2_f.y, "b")
         plt.plot(l3_f.x, l3_f.y, "b")
         plt.plot(f_12.x, f_12.y, "b")
         plt.plot(f_31.x, f_31.y, "b")
         plt.plot(f_23.x, f_23.y, "b")
+        """
+        plt.plot(ls_tras.x, ls_tras.y, "b")
         plt.axis("equal")
         plt.title("Rib generation Example")
         plt.savefig("res/Example of Rib_generation.svg")

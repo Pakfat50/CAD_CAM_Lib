@@ -15,6 +15,7 @@ import copy
 from matplotlib import pyplot as plt
 from shapely.geometry import Point, Polygon
 
+
 # グローバル変数
 N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
@@ -31,11 +32,11 @@ DXF_USE_SPLINE = True # dxfの出力でスプラインをスプラインとし�
 
 class Line:
     def __init__(self, x, y, lineType):
-        self.x = np.array(x) 
-        self.y = np.array(y)
+        self.x = np.ravel((np.array(x))) # 汚い配列が入ってきた場合に１次元化
+        self.y = np.ravel((np.array(y))) # 汚い配列が入ってきた場合に１次元化
         self.line_type = lineType
-        self.st = np.array([float(x[0]), float(y[0])])
-        self.ed = np.array([float(x[-1]), float(y[-1])])
+        self.st = np.ravel(np.array([x[0], y[0]])) # 汚い配列が入ってきた場合に１次元化
+        self.ed = np.ravel(np.array([x[-1], y[-1]])) # 汚い配列が入ってきた場合に１次元化
         self.length = getLength(x, y)
         # 時計回りか反時計回りかを検出
         self.ccw = detectRotation(self.x, self.y)
@@ -153,15 +154,15 @@ class Arc(Spline):
             N = 4
         else:
             N = N_CIRCLE
-        self.sita_st = sita_st
-        self.sita_ed = sita_ed
+        self.sita_st = float(sita_st)
+        self.sita_ed = float(sita_ed)
         self.sita = np.linspace(self.sita_st, self.sita_ed, N)
-        self.r = r
-        self.cx = cx
-        self.cy = cy
+        self.r = float(r)
+        self.cx = float(cx)
+        self.cy = float(cy)
 
-        x = r*np.cos(self.sita) + cx
-        y = r*np.sin(self.sita) + cy
+        x = self.r*np.cos(self.sita) + self.cx
+        y = self.r*np.sin(self.sita) + self.cy
         
         super().__init__(x, y) 
         self.line_type = "Arc"
@@ -175,17 +176,17 @@ class EllipseArc(Spline):
             N = 4
         else:
             N = N_CIRCLE
-        self.sita_st = sita_st
-        self.sita_ed = sita_ed
+        self.sita_st = float(sita_st)
+        self.sita_ed = float(sita_ed)
         self.sita = np.linspace(self.sita_st, self.sita_ed, N)
-        self.rot = rot
-        self.a = a
-        self.b = b
-        self.cx = cx
-        self.cy = cy
+        self.rot = float(rot)
+        self.a = float(a)
+        self.b = float(b)
+        self.cx = float(cx)
+        self.cy = float(cy)
         
-        x = a*np.cos(self.rot)*np.cos(self.sita) - b*np.sin(self.rot)*np.sin(self.sita) + cx
-        y = a*np.sin(self.rot)*np.cos(self.sita) + b*np.cos(self.rot)*np.sin(self.sita) + cy
+        x = self.a*np.cos(self.rot)*np.cos(self.sita) - self.b*np.sin(self.rot)*np.sin(self.sita) + self.cx
+        y = self.a*np.sin(self.rot)*np.cos(self.sita) + self.b*np.cos(self.rot)*np.sin(self.sita) + self.cy
         
         super().__init__(x, y) 
         self.line_type = "EllipseArc"
@@ -260,7 +261,7 @@ class LineGroup(Line):
             x = np.concatenate([x, line.x], 0)
             y = np.concatenate([y, line.y], 0)
         super().__init__(x, y, "LineGroup")
-        self.offset_dist = offset_dist
+        self.offset_dist = float(offset_dist)
         self.update()
         
     def update(self):
@@ -371,14 +372,14 @@ def getSita2(x, y):
 
 
 def norm(x1, y1, x2, y2):
-    return np.sqrt((x2-x1)**2 + (y2-y1)**2)
+    return float(np.sqrt((x2-x1)**2 + (y2-y1)**2))
 
 
 def getLength(x, y):
     i = 0
     length = [0]
     while i < len(x) - 1:
-        length.append(float(norm(x[i], y[i], x[i+1], y[i+1])))
+        length.append(norm(x[i], y[i], x[i+1], y[i+1]))
         i += 1
     return np.array(length)
 
@@ -965,12 +966,10 @@ def filetLines(l0, l1, r, join=False):
         b1 = -m2_1*p2_x + p2_y
         
         f_x, f_y = getCrossPointFromLines(m2_0, b0, m2_1, b1)
-        f_x = float(f_x)
-        f_y = float(f_y)
 
         # 円弧の始点角と終点角を計算する。
-        sita_st = float(np.arctan2(p1_y-f_y, p1_x-f_x))
-        sita_ed = float(np.arctan2(p2_y-f_y, p2_x-f_x))
+        sita_st = np.arctan2(p1_y-f_y, p1_x-f_x)
+        sita_ed = np.arctan2(p2_y-f_y, p2_x-f_x)
         sita_st, sita_ed = getFiletSita(sita_st, sita_ed)
         
         # フィレットを円弧で作成する
