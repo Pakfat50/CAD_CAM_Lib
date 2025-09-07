@@ -1469,6 +1469,10 @@ def exportLine2ModeWorkSpace(msp, layer, line, \
     elif line.line_type == "Circle":
         msp.add_circle(center = (line.cx, line.cy), radius = line.r, dxfattribs = attr)
 
+    elif line.line_type == "LineGroup":
+        for l in line.lines:
+            exportLine2ModeWorkSpace(msp, layer, l, color, linetypes, width)
+
     
 def importLinesFromDxf(msp, dxf_object_type):
     line_objs = msp.query(dxf_object_type)

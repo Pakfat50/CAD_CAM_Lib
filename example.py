@@ -137,7 +137,7 @@ def meka_rib_demo(plotGraph):
     ls_tras = clib.LineGroup([l1_f, l2_f, l3_f, f_12, f_23, f_31])
     ls_tras.sort(0)
     
-    """
+    
     ############################ DXFへ出力 ################################
     # dxfファイルに保存
     # ezdxfのモデルワークスペースオブジェクトを生成
@@ -162,18 +162,13 @@ def meka_rib_demo(plotGraph):
     clib.exportLine2ModeWorkSpace(msp, "layer0", circle)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_a0)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_a1, color = 1 , linetypes="CENTER")
-    clib.exportLine2ModeWorkSpace(msp, "layer0", l1_f)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", l2_f)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", l3_f)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", f_12)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", f_31)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", f_23)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", ls_tras)
     
     # dxfを出力
     doc.saveas('example_rib_generation.dxf')
     
     ############################ 終了 #################################
-    """
+    
     
     if plotGraph == True:
         plt.figure(figsize=(10.0, 8.0))
