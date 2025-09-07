@@ -1422,6 +1422,10 @@ def exportLine2CommandScript(line):
         temp_str += "_.CIRCLE\n"
         temp_str += "%s,%s\n"%(line.cx, line.cy)
         temp_str += "%s\n"%(line.r)
+
+    elif line.line_type == "LineGroup":
+        for l in line.lines:
+            temp_str += exportLine2CommandScript(l)
     
     return temp_str 
 
