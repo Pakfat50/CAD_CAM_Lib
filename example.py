@@ -124,7 +124,6 @@ def meka_rib_demo(plotGraph):
     
     
     ############################ トラス肉抜き　###############################
-    # トラス肉抜き デモなので前方に１区間のみ。繰り返せば全区間肉抜き可。
     # リブ外形からトラス幅だけオフセットしたスプラインを作成
     tr_u = clib.offset(upper, -tr_dist) # 上面
     tr_l = clib.offset(lower, tr_dist) # 下面
@@ -132,11 +131,14 @@ def meka_rib_demo(plotGraph):
     l0 = clib.SLine([cx - cr*np.cos(tr_angle), cx + cr*np.cos(tr_angle)],
                     [cy - cr*np.sin(tr_angle), cy + cr*np.sin(tr_angle)])
     # l0を桁径だけオフセット
+    # 前方
     l0_f = clib.offset(l0, cr)
-    l0_f = clib.invert(l0_f)
+    l0_f = clib.invert(l0_f) # make_truss関数でのl2と向きを合わせる
     
+    # 後方
     l0_r = clib.offset(l0, -cr)
     
+    # トラス生成用関数
     def make_truss(l0, dist, angle, f0, f1):
         # l0を前方向にオフセットした線l1を作成
         l1 = clib.offset(l0, dist)
@@ -170,11 +172,13 @@ def meka_rib_demo(plotGraph):
         
         return ls_tras, l2, area_triangle
     
+    # リブ前方方向へ肉抜き作成
     ls_f_list = []
     i = 0
     area = area_min # 初期値なのでなんでもよい
     l2 = l0_f
     while area >= area_min:
+        # 奇数のときと偶数のときでトラスの上下を入れ替える
         if i%2 == 0:
             ls_tras, l2, area = make_truss(l2, -tr_dist, tr_angle, tr_u, tr_l)
         else:
@@ -182,11 +186,13 @@ def meka_rib_demo(plotGraph):
         ls_f_list.append(ls_tras)
         i += 1
 
+    # リブ後方方向へ肉抜き作成
     ls_r_list = []
     i = 0
     area = area_min # 初期値なのでなんでもよい
     l2 = l0_r
     while area >= area_min:
+        # 奇数のときと偶数のときでトラスの上下を入れ替える
         if i%2 == 0:
             ls_tras, l2, area = make_truss(l2, -tr_dist, tr_angle, tr_l, tr_u)
         else:
