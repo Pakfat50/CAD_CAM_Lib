@@ -426,8 +426,9 @@ def removeSamePoint(x, y):
             new_y.append(y[i])
         i += 1
         
-    new_x.append(x[-1])
-    new_y.append(y[-1])
+    if norm(x[-1], y[-1], new_x[-1], new_y[-1]) > DIST_DELTA:
+        new_x.append(x[-1])
+        new_y.append(y[-1])
     
     return new_x, new_y
 
