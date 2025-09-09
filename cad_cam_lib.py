@@ -32,8 +32,8 @@ DXF_USE_SPLINE = True # dxfの出力でスプラインをスプラインとし�
 
 class Line:
     def __init__(self, x, y, lineType):
-        self.x = np.ravel((np.array(x))) # 汚い配列が入ってきた場合に１次元化
-        self.y = np.ravel((np.array(y))) # 汚い配列が入ってきた場合に１次元化
+        self.x = np.ravel(np.array(x)) # 汚い配列が入ってきた場合に１次元化
+        self.y = np.ravel(np.array(y)) # 汚い配列が入ってきた場合に１次元化
         self.line_type = lineType
         self.st = np.ravel(np.array([x[0], y[0]])) # 汚い配列が入ってきた場合に１次元化
         self.ed = np.ravel(np.array([x[-1], y[-1]])) # 汚い配列が入ってきた場合に１次元化
@@ -577,6 +577,9 @@ def invert(line):
     elif line.line_type == "Ellipse":
         return Ellipse(line.a, line.b, line.rot, line.cx, line.cy, not(line.ccw))
 
+    elif line.line_type == "EllipseArc":
+        return EllipseArc(line.a, line.b, line.rot, line.cx, line.cy, line.sita_ed, line.sita_st)
+
     elif line.line_type == "Airfoil":
         return Airfoil(new_x, new_y)
 
@@ -1041,7 +1044,15 @@ def ellipseAB(x1, y1, x2, y2, ox, oy):
 
 
 def filetLineCurve(line, spline, r, mode, u0):
-    u_root, cx, cy = getCrossPointFromCurveLine(line.f_line, spline.f_curve, u0)
+    if line.a == np.inf:
+        cx = line.st[0]
+        temp_u_root = spline.getUfromX(cx)
+        idx = np.abs(temp_u_root - u0).argmin()
+        u_root = temp_u_root[idx]
+        cx, cy = spline.getPoint(u_root)
+    else:
+        u_root, cx, cy = getCrossPointFromCurveLine(line.f_line, spline.f_curve, u0)
+        
     cp_root = spline.f_diff(u_root)
     
     sita_c = np.arctan(cp_root[1]/cp_root[0])
@@ -1070,46 +1081,72 @@ def filetLineCurve(line, spline, r, mode, u0):
         fx_est = cx + r_f * np.cos(sita_max+sita+np.pi)
         fy_est = cy + r_f * np.sin(sita_max+sita+np.pi)
 
-    xu0 = [spline.f_curve(u0)[0], u0]
+
+    def Fr(xu):
+        lx, ly, cx, cy, fx, fy = calc(xu)
+        dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
+        dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
+        
+        return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2 + ((fx_est-fx)**2 + (fy_est-fy)**2)**2
+
+    def F(xu):
+        lx, ly, cx, cy, fx, fy = calc(xu)
+        dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
+        dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
+        
+        return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2    
         
     try:
-        def calc(xu):
-            lx = xu[0]
-            cu = xu[1]
+        if line.a == np.inf:
+            def calc(yu):
+                ly = yu[0]
+                cu = yu[1]
+                
+                lx = line.st[0]
+                lva = line.m2
+                lvb = ly
+                
+                cp = spline.f_curve(cu)
+                cx = cp[0]
+                cy = cp[1]
+                ca = spline.f_diff(cu)
+                cva = -1/ca[1] * ca[0]
+                cvb = -cva*cx + cy
+                
+                fx, fy = getCrossPointFromLines(lva, lvb, cva, cvb)
+                return lx, ly, cx, cy, fx, fy
             
-            ly = line.f_line(lx)
-            lva = line.m2
-            lvb = -lva*lx + ly
+            yu0 = [spline.f_curve(u0)[1], u0]
+            rough_yu = fmin(Fr, x0 = yu0, disp = 0)
+            opt_yu = fmin(F, x0 = rough_yu, disp = 0)
+            opt_u = opt_yu[1]
+            p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_yu)
             
-            cp = spline.f_curve(cu)
-            cx = cp[0]
-            cy = cp[1]
-            ca = spline.f_diff(cu)
-            cva = -1/ca[1] * ca[0]
-            cvb = -cva*cx + cy
+        else:
+            def calc(xu):
+                lx = xu[0]
+                cu = xu[1]
+                
+                ly = line.f_line(lx)
+                lva = line.m2
+                lvb = -lva*lx + ly
+                
+                cp = spline.f_curve(cu)
+                cx = cp[0]
+                cy = cp[1]
+                ca = spline.f_diff(cu)
+                cva = -1/ca[1] * ca[0]
+                cvb = -cva*cx + cy
+                
+                fx, fy = getCrossPointFromLines(lva, lvb, cva, cvb)
+                
+                return lx, ly, cx, cy, fx, fy            
             
-            fx, fy = getCrossPointFromLines(lva, lvb, cva, cvb)
-            
-            return lx, ly, cx, cy, fx, fy
-        
-        def Fr(xu):
-            lx, ly, cx, cy, fx, fy = calc(xu)
-            dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
-            dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
-            
-            return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2 + ((fx_est-fx)**2 + (fy_est-fy)**2)**2
-
-        def F(xu):
-            lx, ly, cx, cy, fx, fy = calc(xu)
-            dist_l_f2 = (lx-fx)**2 + (ly-fy)**2
-            dist_c_f2 = (cx-fx)**2 + (cy-fy)**2
-            
-            return (dist_l_f2 - dist_c_f2)**2 + (2*r**2 - dist_l_f2 - dist_c_f2)**2
-        
-        rough_xu = fmin(Fr, x0 = xu0, disp = 0)
-        opt_xu = fmin(F, x0 = rough_xu, disp = 0)
-        
-        p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_xu)
+            xu0 = [spline.f_curve(u0)[0], u0]
+            rough_xu = fmin(Fr, x0 = xu0, disp = 0)
+            opt_xu = fmin(F, x0 = rough_xu, disp = 0)
+            opt_u = opt_xu[1]
+            p1_x, p1_y, p2_x, p2_y, f_x, f_y = calc(opt_xu)
         
         a,b = ellipseAB(p1_x, p1_y, p2_x, p2_y, f_x, f_y)
         
@@ -1127,7 +1164,6 @@ def filetLineCurve(line, spline, r, mode, u0):
         # フィレットの直線との接点におけるuが増加する方向のベクトルを算出
         vect_filet_l = np.array(filet.f_curve(filet.u[0] + DELTA_U)) - np.array(filet.f_curve(filet.u[0]))        
         
-        opt_u = opt_xu[1]
         # スプラインのフィレットとの接点におけるuが増加する方向のベクトルを算出
         vect_spline = np.array(spline.f_curve(opt_u + DELTA_U)) - np.array(spline.f_curve(opt_u))
         # フィレットのスプラインとの接点におけるuが増加する方向のベクトルを算出
@@ -1137,12 +1173,18 @@ def filetLineCurve(line, spline, r, mode, u0):
         # よって直線との接点では、フィレットと直線とのベクトルは反対を向き、スプラインとの接点では同じ方向を向く
         if np.dot(vect_line, vect_filet_l) < 0:
             # 直線とフィレットのベクトルが反対方向なので、直線の向きはもとの方向に増加でOK
-            # 始点を接点のx,終点を直線の終点としてトリム
-            t_line = trim(line, p1_x, line.ed[0])
+            # 始点を接点, 終点を直線の終点としてトリム
+            if line.a == np.inf:
+                t_line = trim(line, p1_y, line.ed[1], lineAxis = "y")
+            else:
+                t_line = trim(line, p1_x, line.ed[0])
         else:
             # 直線とフィレットのベクトルが同じ方向なので、直線の向きはもとの方向に増加するとNG
-            # 始点を直線の始点、終点を接点のxとしてトリム
-            t_line = trim(line, line.st[0], p1_x)        
+            # 始点を直線の始点、終点を接点としてトリム
+            if line.a == np.inf:
+                t_line = trim(line, p1_y, line.st[1], lineAxis = "y")
+            else:
+                t_line = trim(line, line.st[0], p1_x)        
         
         if np.dot(vect_spline, vect_filet_s) >= 0:
             # スプラインとフィレットのベクトルが同じ方向なので、スプラインはu増加でOK
@@ -1305,8 +1347,12 @@ def trim(line, st, ed, lineAxis = "x"):
         if lineAxis == "y":
             y_st = st
             y_ed = ed
-            new_x = np.array([(y_st-line.b)/line.a, (y_ed-line.b)/line.a])
-            new_y = np.array([y_st, y_ed])
+            if line.a == np.inf:
+                new_x = np.array([line.st[0], line.st[0]])
+                new_y = np.array([y_st, y_ed])
+            else:
+                new_x = np.array([(y_st-line.b)/line.a, (y_ed-line.b)/line.a])
+                new_y = np.array([y_st, y_ed])
         else:
             x_st = st
             x_ed = ed

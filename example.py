@@ -27,9 +27,11 @@ def meka_rib_demo(plotGraph):
     
     x_plank_u = chord*0.7 # 上面プランク端 [mm]
     x_plank_l = chord*0.2 # 下面プランク端 [mm]
+    plank_fr = 1.5 # プランクフィレット径 [mm]
     
-    st_width = 3 # ストリンガー幅 [mm]
+    st_width = 4 # ストリンガー幅 [mm]
     st_hight = 4 # ストリンガー高 [mm]
+    st_fr = 1.5 # ストリンガーフィレット径 [mm]
     x_st1 = x_plank_u-20 #[mm]
     x_st2 = x_plank_l-20 #[mm]
     
@@ -76,7 +78,7 @@ def meka_rib_demo(plotGraph):
     y_outer_u = max(outer.getYfromX(x_plank_u))
     y_outer_l = min(outer.getYfromX(x_plank_l))
     line_plank_u = clib.SLine([x_plank_u, x_plank_u], [y_plank_u, y_outer_u])
-    line_plank_l = clib.SLine([x_plank_l, x_plank_l], [y_plank_l, y_outer_l])
+    line_plank_l = clib.SLine([x_plank_l, x_plank_l], [y_outer_l, y_plank_l])
     
     # プランク内側を生成
     u_plank_u = min(plank_l.getUfromX(x_plank_u))
@@ -93,24 +95,40 @@ def meka_rib_demo(plotGraph):
     
     
     ############################ ストリンガー生成 ############################
-    # 今回はデモなので、Y軸に並行にストリンガーを作成する
-    y_st1_st = max(plank_l.getYfromX(x_st1))
-    y_st2_st = min(plank_l.getYfromX(x_st2))
-    y_st1_ed = max(plank_l.getYfromX(x_st1 + st_width))
-    y_st2_ed = min(plank_l.getYfromX(x_st2 + st_width))
-    st1 = clib.Polyline([x_st1, x_st1, x_st1 + st_width, x_st1 + st_width],\
-                        [y_st1_st, y_st1_st-st_hight, y_st1_ed-st_hight, y_st1_ed])
-    st2 = clib.Polyline([x_st2, x_st2, x_st2 + st_width, x_st2 + st_width],\
-                        [y_st2_st, y_st2_st+st_hight, y_st2_ed+st_hight, y_st2_ed])
+    f_st_u = clib.offset(upper, -t_plank)
+    f_st_l = clib.offset(lower, t_plank)
+    
+    def make_stringer(x, f, height):
+        x_st_st = x-st_width/2
+        x_st_ed = x+st_width/2
+        y_st_st = float(f.getYfromX(x_st_st))
+        y_st_ed = float(f.getYfromX(x_st_ed))
+        l2 = clib.SLine([x_st_st, x_st_ed], [y_st_st, y_st_ed])
+        l2 = clib.offset(l2, height)
+        l1 = clib.SLine([x_st_st, l2.st[0]], [y_st_st, l2.st[1]])
+        l3 = clib.SLine([l2.ed[0], x_st_ed], [l2.ed[1], y_st_ed])
+        l1, l2, f_12 = clib.filetLines(l1, l2, st_fr)
+        l2, l3, f_23 = clib.filetLines(l2, l3, st_fr)
+        ls_st = clib.LineGroup([l1, l2, l3, f_12, f_23])
+        ls_st.sort(0)
+        return ls_st
+    
+    st1 = make_stringer(x_st1, f_st_u, -st_hight)
+    st2 = make_stringer(x_st2, f_st_l, st_hight)
     
     ############################ リブ外形を整形 ############################
     rib_outer_u = clib.trim(outer, 0, u_outer_u)
     rib_outer_l = clib.trim(outer, u_outer_l, 1)
+    
+    plank_l_f = clib.offset(outer, t_plank)
+    line_plank_u, plank_l_f, plank_f_u = clib.filetLineCurve(line_plank_u, plank_l_f, plank_fr, 2, 0)
+    line_plank_l, plank_l_f, plank_f_l = clib.filetLineCurve(line_plank_l, plank_l_f, plank_fr, 3, 1)
+    
     if not outer.closed: # リブが閉じていない場合、後縁を整形
         line_edge = clib.SLine([outer.st[0], outer.ed[0]], [outer.st[1], outer.ed[1]])
-        rib_outer = clib.LineGroup([rib_outer_u, plank_l, rib_outer_l, line_edge, line_plank_u, line_plank_l])
+        rib_outer = clib.LineGroup([rib_outer_u, plank_l_f, rib_outer_l, line_edge, line_plank_u, line_plank_l, plank_f_u, plank_f_l])
     else:
-        rib_outer = clib.LineGroup([rib_outer_u, plank_l, rib_outer_l, line_plank_u, line_plank_l])
+        rib_outer = clib.LineGroup([rib_outer_u, plank_l_f, rib_outer_l, line_plank_u, line_plank_l, plank_f_u, plank_f_l])
     rib_outer.sort(0)
         
     ############################ 桁穴生成 ################################
@@ -226,7 +244,7 @@ def meka_rib_demo(plotGraph):
             'linetype': 'Continuous' #線種
     }
     doc.layers.new(name="layer0",  dxfattribs = attr) # レイヤーを追加
-    
+    """
     # モデルワークスペースに作成した直線とスプラインと楕円を追加
     clib.exportLine2ModeWorkSpace(msp, "layer0", rib_outer)
     clib.exportLine2ModeWorkSpace(msp, "layer0", center, color = 3, linetypes="CENTER")
@@ -247,10 +265,10 @@ def meka_rib_demo(plotGraph):
     doc.saveas('example_rib_generation.dxf')
     
     ############################ 終了 #################################
-    
+    """
     
     if plotGraph == True:
-        plt.figure(figsize=(10.0, 8.0))
+        #plt.figure(figsize=(10.0, 8.0))
         #plt.plot(outer.x, outer.y,"b")
         plt.plot(rib_outer.x, rib_outer.y ,"b", linewidth = 3)
         #plt.plot(upper.x, upper.y)
@@ -265,6 +283,7 @@ def meka_rib_demo(plotGraph):
         #plt.plot(tr_u.x, tr_u.y, "b--")
         #plt.plot(tr_l.x, tr_l.y, "b--")
         #plt.plot(l0_f.x, l0_f.y, "b--")
+        #plt.plot(plank_l_f.x, plank_l_f.y, "g--", linewidth = 3)
         
         for ls_f in ls_f_list:
             plt.plot(ls_f.x, ls_f.y, "b")
