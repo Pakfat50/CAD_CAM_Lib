@@ -120,15 +120,18 @@ def meka_rib_demo(plotGraph):
     rib_outer_u = clib.trim(outer, 0, u_outer_u)
     rib_outer_l = clib.trim(outer, u_outer_l, 1)
     
-    plank_l_f = clib.offset(outer, t_plank)
-    line_plank_u, plank_l_f, plank_f_u = clib.filetLineCurve(line_plank_u, plank_l_f, plank_fr, 2, 0)
-    line_plank_l, plank_l_f, plank_f_l = clib.filetLineCurve(line_plank_l, plank_l_f, plank_fr, 3, 1)
+    rib_plank_u = clib.offset(upper, -t_plank)
+    rib_plank_l = clib.offset(lower, t_plank)
+    line_plank_u, rib_plank_u, plank_f_u = clib.filetLineCurve(line_plank_u, rib_plank_u, plank_fr, 2, 0.5)
+    line_plank_l, rib_plank_l, plank_f_l = clib.filetLineCurve(line_plank_l, rib_plank_l, plank_fr, 3, 0.5)
     
     if not outer.closed: # リブが閉じていない場合、後縁を整形
         line_edge = clib.SLine([outer.st[0], outer.ed[0]], [outer.st[1], outer.ed[1]])
-        rib_outer = clib.LineGroup([rib_outer_u, plank_l_f, rib_outer_l, line_edge, line_plank_u, line_plank_l, plank_f_u, plank_f_l])
+        rib_outer = clib.LineGroup([rib_outer_u, rib_plank_u, rib_plank_l, rib_outer_l, line_edge, \
+                                    line_plank_u, line_plank_l, plank_f_u, plank_f_l])
     else:
-        rib_outer = clib.LineGroup([rib_outer_u, plank_l_f, rib_outer_l, line_plank_u, line_plank_l, plank_f_u, plank_f_l])
+        rib_outer = clib.LineGroup([rib_outer_u, rib_plank_u, rib_plank_l, rib_outer_l, \
+                                    line_plank_u, line_plank_l, plank_f_u, plank_f_l])
     rib_outer.sort(0)
         
     ############################ 桁穴生成 ################################

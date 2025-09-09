@@ -17,6 +17,7 @@ from shapely.geometry import Point, Polygon
 
 
 # グローバル変数
+DIST_DELTA = 0.00000001 # スプライン補完可能な最小距離
 N_FILLET_INTERPORATE = 20 # フィレット点数
 N_CIRCLE = 100 # 円の生データ点数
 N_AIRFOIL = 500 # 翼型のデータ数
@@ -413,13 +414,13 @@ def removeSamePoint(x, y):
     new_x = []
     new_y = []
     while i < len(x)-1:
-        if not ((x[i+1] == x[i]) and (y[i+1] == y[i])):
+        if norm(x[i], y[i], x[i+1], y[i+1]) > DIST_DELTA:
             new_x.append(x[i])
             new_y.append(y[i])
         i += 1
-    
-    new_x.append(x[-1])
-    new_y.append(y[-1])
+    if norm(x[-1], y[-1], x[-2], y[-2]) > DIST_DELTA:
+        new_x.append(x[-1])
+        new_y.append(y[-1])
     
     return np.array(new_x), np.array(new_y)
 
