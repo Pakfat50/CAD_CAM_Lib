@@ -38,7 +38,8 @@ def meka_rib_demo(plotGraph):
     
     tr_dist = 10 # トラス肉抜き幅 [mm]
     tr_angle = np.radians(60) # トラス角度 [rad]
-    fr = 6 # フィレット半径
+    fr = 4 # フィレット半径
+    area_min = 500 # 肉抜き最小面積 [mm^2]
     
     rot = np.radians(3) # 取付迎角 [rad]
     
@@ -108,36 +109,72 @@ def meka_rib_demo(plotGraph):
     tr_u = clib.offset(upper, -tr_dist) # 上面
     tr_l = clib.offset(lower, tr_dist) # 下面
     # トラスのもととなる、桁中心を通るトラス角度の線l0を作成
-    l0_f = clib.SLine([cx - cr*np.cos(tr_angle), cx + cr*np.cos(tr_angle)],
+    l0 = clib.SLine([cx - cr*np.cos(tr_angle), cx + cr*np.cos(tr_angle)],
                       [cy - cr*np.sin(tr_angle), cy + cr*np.sin(tr_angle)])
+    # l0を桁径だけオフセット
+    l0_f = clib.offset(l0, cr)
+    l0_f = clib.invert(l0_f)
     
-    # l0を前方向にオフセットした線l1を作成
-    l1_f = clib.offset(l0_f, cr + tr_dist)
-    # l1と上下面のスプラインの交点を算出
-    u1_f, x1_f, y1_f = clib.getCrossPointFromCurveLine(l1_f.f_line, tr_u.f_curve, 0.5) # 上面
-    u2_f, x2_f, y2_f = clib.getCrossPointFromCurveLine(l1_f.f_line, tr_l.f_curve, 0.5) # 下面
-    # 算出した交点で、l1をトリム
-    l1_f = clib.trim(l1_f, x1_f, x2_f, lineAxis = "x") 
+    l0_r = clib.offset(l0, -cr)
     
-    # l1の端点（下面のスプラインとの交点）を通り、角度が-トラス角の線l2を作成
-    l2_f = clib.SLine([x2_f - cr*np.cos(-tr_angle), x2_f + cr*np.cos(-tr_angle)],
-                      [y2_f - cr*np.sin(-tr_angle), y2_f + cr*np.sin(-tr_angle)])
-    # l2と上面のスプラインの交点を算出
-    u3_f, x3_f, y3_f = clib.getCrossPointFromCurveLine(l2_f.f_line, tr_u.f_curve, 0.5) 
-    # 算出した交点でl2をトリム
-    l2_f = clib.trim(l2_f, x2_f, x3_f, lineAxis = "x")
+    def make_truss(l0, dist, angle, f0, f1):
+        # l0を前方向にオフセットした線l1を作成
+        l1 = clib.offset(l0, dist)
+        # l1と上下面のスプラインの交点を算出
+        u1, x1, y1 = clib.getCrossPointFromCurveLine(l1.f_line, f0.f_curve, 0.5) # 上面
+        u2, x2, y2 = clib.getCrossPointFromCurveLine(l1.f_line, f1.f_curve, 0.5) # 下面
+        # 算出した交点で、l1をトリム
+        l1 = clib.trim(l1, x1, x2, lineAxis = "x") 
+        
+        # l1の端点（下面のスプラインとの交点）を通り、角度が-トラス角の線l2を作成
+        l2 = clib.SLine([x2 - cr*np.cos(-angle), x2 + cr*np.cos(-angle)],
+                        [y2 - cr*np.sin(-angle), y2 + cr*np.sin(-angle)])
+        # l2と上面のスプラインの交点を算出
+        u3, x3, y3 = clib.getCrossPointFromCurveLine(l2.f_line, f0.f_curve, 0.5) 
+        # 算出した交点でl2をトリム
+        l2 = clib.trim(l2, x2, x3, lineAxis = "x")
+        
+        # トラスの残りの１辺について、算出した交点をつなぐ線l3を算出
+        l3 = clib.SLine([x3, x1], [y3, y1])
+        
+        # l1~l3をの間のフィレットを作成
+        l1, l2, f_12 = clib.filetLines(l1, l2, fr)
+        l3, l1, f_31 = clib.filetLines(l3, l1, fr)
+        l2, l3, f_23 = clib.filetLines(l2, l3, fr)
+        ls_tras = clib.LineGroup([l1, l2, l3, f_12, f_23, f_31])
+        ls_tras.sort(0)
+        
+        # フィレットつきで面積を計算すると、フィレットできない面積となった場合に、肉抜き面積が破綻するため
+        # フィレットなしの三角形で肉抜き停止を判定する
+        area_triangle = clib.getAreaTriangle(x1,y1, x2,y2, x3,y3)
+        
+        return ls_tras, l2, area_triangle
     
-    # トラスの残りの１辺について、算出した交点をつなぐ線l3を算出
-    l3_f = clib.SLine([x3_f, x1_f], [y3_f, y1_f])
+    ls_f_list = []
+    i = 0
+    area = area_min # 初期値なのでなんでもよい
+    l2 = l0_f
+    while area >= area_min:
+        if i%2 == 0:
+            ls_tras, l2, area = make_truss(l2, -tr_dist, tr_angle, tr_u, tr_l)
+        else:
+            ls_tras, l2, area = make_truss(l2, tr_dist, -tr_angle, tr_l, tr_u)
+        ls_f_list.append(ls_tras)
+        i += 1
+
+    ls_r_list = []
+    i = 0
+    area = area_min # 初期値なのでなんでもよい
+    l2 = l0_r
+    while area >= area_min:
+        if i%2 == 0:
+            ls_tras, l2, area = make_truss(l2, -tr_dist, tr_angle, tr_l, tr_u)
+        else:
+            ls_tras, l2, area = make_truss(l2, tr_dist, -tr_angle, tr_u, tr_l)
+        ls_r_list.append(ls_tras)
+        i += 1
     
-    # l1~l3をの間のフィレットを作成
-    l1_f, l2_f, f_12 = clib.filetLines(l1_f, l2_f, fr)
-    l3_f, l1_f, f_31 = clib.filetLines(l3_f, l1_f, fr)
-    l2_f, l3_f, f_23 = clib.filetLines(l2_f, l3_f, fr)
-    ls_tras = clib.LineGroup([l1_f, l2_f, l3_f, f_12, f_23, f_31])
-    ls_tras.sort(0)
-    
-    
+    """
     ############################ DXFへ出力 ################################
     # dxfファイルに保存
     # ezdxfのモデルワークスペースオブジェクトを生成
@@ -162,13 +199,16 @@ def meka_rib_demo(plotGraph):
     clib.exportLine2ModeWorkSpace(msp, "layer0", circle)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_a0)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_a1, color = 1 , linetypes="CENTER")
-    clib.exportLine2ModeWorkSpace(msp, "layer0", ls_tras)
+    for ls_f in ls_f_list:
+        clib.exportLine2ModeWorkSpace(msp, "layer0", ls_f)
+    for ls_r in ls_r_list:
+        clib.exportLine2ModeWorkSpace(msp, "layer0", ls_r)
     
     # dxfを出力
     doc.saveas('example_rib_generation.dxf')
     
     ############################ 終了 #################################
-    
+    """
     
     if plotGraph == True:
         plt.figure(figsize=(10.0, 8.0))
@@ -187,15 +227,14 @@ def meka_rib_demo(plotGraph):
         #plt.plot(tr_u.x, tr_u.y, "b--")
         #plt.plot(tr_l.x, tr_l.y, "b--")
         #plt.plot(l0_f.x, l0_f.y, "b--")
-        """
-        plt.plot(l1_f.x, l1_f.y, "b")
-        plt.plot(l2_f.x, l2_f.y, "b")
-        plt.plot(l3_f.x, l3_f.y, "b")
-        plt.plot(f_12.x, f_12.y, "b")
-        plt.plot(f_31.x, f_31.y, "b")
-        plt.plot(f_23.x, f_23.y, "b")
-        """
-        plt.plot(ls_tras.x, ls_tras.y, "b")
+        
+        for ls_f in ls_f_list:
+            plt.plot(ls_f.x, ls_f.y, "b")
+
+        for ls_r in ls_r_list:
+            plt.plot(ls_r.x, ls_r.y, "b")
+        
+        #plt.plot(ls_tras4.x, ls_tras4.y, "b")
         plt.axis("equal")
         plt.title("Rib generation Example")
         plt.savefig("res/Example of Rib_generation.svg")

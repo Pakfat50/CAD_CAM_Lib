@@ -263,6 +263,7 @@ class LineGroup(Line):
         super().__init__(x, y, "LineGroup")
         self.offset_dist = float(offset_dist)
         self.update()
+        self.area = getArea(self.x, self.y)
         
     def update(self):
         x = np.array([])
@@ -396,6 +397,14 @@ def getArea(x, y):
         return S
     else:
         return 0
+
+
+def getAreaTriangle(x1,y1, x2,y2, x3,y3):
+    # https://ouchimath.com/3point-menseki/
+    s = (x1-x3)*(y2-y3)-(x2-x3)*(y1-y3)
+    s = np.abs(s)
+    s = s/2
+    return s
 
 
 def removeSamePoint(x, y):
