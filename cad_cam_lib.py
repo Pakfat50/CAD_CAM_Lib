@@ -33,11 +33,11 @@ DXF_USE_SPLINE = True # dxfの出力でスプラインをスプラインとし�
 
 class Line:
     def __init__(self, x, y, lineType):
-        self.x = np.ravel(np.array(x)) # 汚い配列が入ってきた場合に１次元化
-        self.y = np.ravel(np.array(y)) # 汚い配列が入ってきた場合に１次元化
+        self.x = getFlatten(x) # 汚い配列が入ってきた場合に１次元化
+        self.y = getFlatten(y) # 汚い配列が入ってきた場合に１次元化
         self.line_type = lineType
-        self.st = np.ravel(np.array([x[0], y[0]])) # 汚い配列が入ってきた場合に１次元化
-        self.ed = np.ravel(np.array([x[-1], y[-1]])) # 汚い配列が入ってきた場合に１次元化
+        self.st = np.ravel(np.array([float(x[0]), float(y[0])])) # 汚い配列が入ってきた場合に１次元化
+        self.ed = np.ravel(np.array([float(x[-1]), float(y[-1])])) # 汚い配列が入ってきた場合に１次元化
         self.length = getLength(x, y)
         # 時計回りか反時計回りかを検出
         self.ccw = detectRotation(self.x, self.y)
@@ -374,6 +374,13 @@ def getSita2(x, y):
     return sita2
 
 
+def getFlatten(array):
+    ret = []
+    for val in array:
+        ret.append(float(val))
+    return np.array(ret)
+
+
 def norm(x1, y1, x2, y2):
     return float(np.sqrt((x2-x1)**2 + (y2-y1)**2))
 
@@ -418,11 +425,11 @@ def removeSamePoint(x, y):
             new_x.append(x[i])
             new_y.append(y[i])
         i += 1
-    if norm(x[-1], y[-1], x[-2], y[-2]) > DIST_DELTA:
-        new_x.append(x[-1])
-        new_y.append(y[-1])
+        
+    new_x.append(x[-1])
+    new_y.append(y[-1])
     
-    return np.array(new_x), np.array(new_y)
+    return new_x, new_y
 
 
 def getNormalizedSumArray(array):
@@ -867,7 +874,7 @@ def offset(line, d):
         return Arc(line.r+d, line.cx, line.cy, line.sita_st, line.sita_ed)
     
     elif line.line_type == "EllipseArc":
-        return Arc(line.a+d, line.b+d, line.rot, line.cx, line.cy, line.sita_st, line.sita_ed)
+        return EllipseArc(line.a+d, line.b+d, line.rot, line.cx, line.cy, line.sita_st, line.sita_ed)
 
     elif line.line_type == "Circle":
         return Circle(line.r+d, line.cx, line.cy)
@@ -1046,10 +1053,14 @@ def ellipseAB(x1, y1, x2, y2, ox, oy):
 
 def filetLineCurve(line, spline, r, mode, u0):
     if line.a == np.inf:
+        # 線分がy軸に並行なとき、Xの値は固定
         cx = line.st[0]
         temp_u_root = spline.getUfromX(cx)
+        
+        # あるXに対して複数の交点を保つ場合、初期値u0に一番近いものが意図した交点であるので、そのuを選択する
         idx = np.abs(temp_u_root - u0).argmin()
         u_root = temp_u_root[idx]
+        # 選択したuにおける交点を計算する
         cx, cy = spline.getPoint(u_root)
     else:
         u_root, cx, cy = getCrossPointFromCurveLine(line.f_line, spline.f_curve, u0)
@@ -1099,6 +1110,7 @@ def filetLineCurve(line, spline, r, mode, u0):
         
     try:
         if line.a == np.inf:
+            # 線分がy軸に並行な場合、xではなくyを振って解を求める
             def calc(yu):
                 ly = yu[0]
                 cu = yu[1]
@@ -1176,6 +1188,7 @@ def filetLineCurve(line, spline, r, mode, u0):
             # 直線とフィレットのベクトルが反対方向なので、直線の向きはもとの方向に増加でOK
             # 始点を接点, 終点を直線の終点としてトリム
             if line.a == np.inf:
+                # 線分がy軸に並行な場合、y軸でトリムする
                 t_line = trim(line, p1_y, line.ed[1], lineAxis = "y")
             else:
                 t_line = trim(line, p1_x, line.ed[0])
@@ -1183,6 +1196,7 @@ def filetLineCurve(line, spline, r, mode, u0):
             # 直線とフィレットのベクトルが同じ方向なので、直線の向きはもとの方向に増加するとNG
             # 始点を直線の始点、終点を接点としてトリム
             if line.a == np.inf:
+                # 線分がy軸に並行な場合、y軸でトリムする
                 t_line = trim(line, p1_y, line.st[1], lineAxis = "y")
             else:
                 t_line = trim(line, line.st[0], p1_x)        
@@ -1385,10 +1399,8 @@ def trim(line, st, ed, lineAxis = "x"):
                 new_y.append(y)
             i += 1
         new_x.append(x_ed)
-        new_y.append(y_ed)    
+        new_y.append(y_ed)
         
-        new_x = np.array(new_x)
-        new_y = np.array(new_y)
     
     if (line.line_type == "Circle") or (line.line_type == "Ellipse"):
         sita_st = st

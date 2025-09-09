@@ -27,11 +27,11 @@ def meka_rib_demo(plotGraph):
     
     x_plank_u = chord*0.7 # 上面プランク端 [mm]
     x_plank_l = chord*0.2 # 下面プランク端 [mm]
-    plank_fr = 1.5 # プランクフィレット径 [mm]
+    plank_fr = 1.6 # プランクフィレット径 [mm]
     
     st_width = 4 # ストリンガー幅 [mm]
     st_hight = 4 # ストリンガー高 [mm]
-    st_fr = 1.5 # ストリンガーフィレット径 [mm]
+    st_fr = 1.6 # ストリンガーフィレット径 [mm]
     x_st1 = x_plank_u-20 #[mm]
     x_st2 = x_plank_l-20 #[mm]
     
@@ -125,13 +125,33 @@ def meka_rib_demo(plotGraph):
     line_plank_u, rib_plank_u, plank_f_u = clib.filetLineCurve(line_plank_u, rib_plank_u, plank_fr, 2, 0.5)
     line_plank_l, rib_plank_l, plank_f_l = clib.filetLineCurve(line_plank_l, rib_plank_l, plank_fr, 3, 0.5)
     
+    rib_outer_list = [rib_outer_u, rib_outer_l, line_plank_u, line_plank_l, plank_f_u, plank_f_l]
+    
+    def trim_stringer(f, st):
+        # 前提として、fは単射（upper or lowerをオフセットしたもの） かつ、x軸に対して単調増加
+        x_st = min(st.st[0], st.ed[0])
+        x_ed = max(st.st[0], st.ed[0])
+        u_st = f.getUfromX(x_st)
+        u_ed = f.getUfromX(x_ed)
+        f_st = clib.trim(f, 0, u_st)
+        f_ed = clib.trim(f, u_ed, 1)
+        return f_st, f_ed
+    
+    rib_plank_u_f, rib_plank_u_r = trim_stringer(rib_plank_u, st1)
+    rib_plank_l_f, rib_plank_l_r = trim_stringer(rib_plank_l, st2)
+    
+    rib_outer_list.append(rib_plank_u_f)
+    rib_outer_list.append(rib_plank_u_r)
+    rib_outer_list.append(rib_plank_l_f)
+    rib_outer_list.append(rib_plank_l_r)
+    rib_outer_list = rib_outer_list + st1.lines
+    rib_outer_list = rib_outer_list + st2.lines
+    
     if not outer.closed: # リブが閉じていない場合、後縁を整形
         line_edge = clib.SLine([outer.st[0], outer.ed[0]], [outer.st[1], outer.ed[1]])
-        rib_outer = clib.LineGroup([rib_outer_u, rib_plank_u, rib_plank_l, rib_outer_l, line_edge, \
-                                    line_plank_u, line_plank_l, plank_f_u, plank_f_l])
-    else:
-        rib_outer = clib.LineGroup([rib_outer_u, rib_plank_u, rib_plank_l, rib_outer_l, \
-                                    line_plank_u, line_plank_l, plank_f_u, plank_f_l])
+        rib_outer_list.append(line_edge)
+
+    rib_outer = clib.LineGroup(rib_outer_list)
     rib_outer.sort(0)
         
     ############################ 桁穴生成 ################################
@@ -142,6 +162,7 @@ def meka_rib_demo(plotGraph):
     ############################ 迎角線生成 ##############################
     line_a0 = clib.SLine([-20, chord+20], [cy, cy])
     line_a1 = clib.rotate(line_a0, rot, cx, cy)
+    line_a2 = clib.SLine([cx, cx], [cy - cr*3, cy + cr*3])
     
     
     ############################ トラス肉抜き　###############################
@@ -247,18 +268,17 @@ def meka_rib_demo(plotGraph):
             'linetype': 'Continuous' #線種
     }
     doc.layers.new(name="layer0",  dxfattribs = attr) # レイヤーを追加
-    """
+    
     # モデルワークスペースに作成した直線とスプラインと楕円を追加
     clib.exportLine2ModeWorkSpace(msp, "layer0", rib_outer)
     clib.exportLine2ModeWorkSpace(msp, "layer0", center, color = 3, linetypes="CENTER")
-    clib.exportLine2ModeWorkSpace(msp, "layer0", plank)
+    clib.exportLine2ModeWorkSpace(msp, "layer0", plank, color = 5, linetypes="CENTER")
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_plank_u)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_plank_l)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", st1)
-    clib.exportLine2ModeWorkSpace(msp, "layer0", st2)
     clib.exportLine2ModeWorkSpace(msp, "layer0", circle)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_a0)
     clib.exportLine2ModeWorkSpace(msp, "layer0", line_a1, color = 1 , linetypes="CENTER")
+    clib.exportLine2ModeWorkSpace(msp, "layer0", line_a2)
     for ls_f in ls_f_list:
         clib.exportLine2ModeWorkSpace(msp, "layer0", ls_f)
     for ls_r in ls_r_list:
@@ -268,31 +288,30 @@ def meka_rib_demo(plotGraph):
     doc.saveas('example_rib_generation.dxf')
     
     ############################ 終了 #################################
-    """
+    
     
     if plotGraph == True:
-        #plt.figure(figsize=(10.0, 8.0))
+        plt.figure(figsize=(10.0, 8.0))
         #plt.plot(outer.x, outer.y,"b")
-        plt.plot(rib_outer.x, rib_outer.y ,"b", linewidth = 3)
+        plt.plot(rib_outer.x, rib_outer.y ,"k")
         #plt.plot(upper.x, upper.y)
         #plt.plot(lower.x, lower.y)
         plt.plot(center.x, center.y, "g--")
-        plt.plot(plank.x, plank.y, "r")
-        plt.plot(st1.x, st1.y, "b")
-        plt.plot(st2.x, st2.y, "b")
-        plt.plot(circle.x, circle.y, "b")
-        plt.plot(line_a0.x, line_a0.y, "b--")
+        plt.plot(plank.x, plank.y, "b--")
+        plt.plot(circle.x, circle.y, "k")
+        plt.plot(line_a0.x, line_a0.y, "k--")
         plt.plot(line_a1.x, line_a1.y, "r--")
+        plt.plot(line_a2.x, line_a2.y, "k--")
         #plt.plot(tr_u.x, tr_u.y, "b--")
         #plt.plot(tr_l.x, tr_l.y, "b--")
         #plt.plot(l0_f.x, l0_f.y, "b--")
         #plt.plot(plank_l_f.x, plank_l_f.y, "g--", linewidth = 3)
         
         for ls_f in ls_f_list:
-            plt.plot(ls_f.x, ls_f.y, "b")
+            plt.plot(ls_f.x, ls_f.y, "k")
 
         for ls_r in ls_r_list:
-            plt.plot(ls_r.x, ls_r.y, "b")
+            plt.plot(ls_r.x, ls_r.y, "k")
         
         plt.axis("equal")
         plt.title("Rib generation Example")
