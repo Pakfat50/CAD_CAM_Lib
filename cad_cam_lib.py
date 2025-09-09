@@ -262,8 +262,8 @@ class LineGroup(Line):
             y = np.concatenate([y, line.y], 0)
         super().__init__(x, y, "LineGroup")
         self.offset_dist = float(offset_dist)
-        self.update()
         self.area = getArea(self.x, self.y)
+        self.update()
         
     def update(self):
         x = np.array([])
@@ -278,6 +278,7 @@ class LineGroup(Line):
         self.length = getLength(x, y)
         self.ccw = detectRotation(self.x, self.y)
         self.closed = checkIsClosed(self.st[0], self.st[1], self.ed[0], self.ed[1])
+        self.area = getArea(self.x, self.y)
         
     def invert(self, num):
         if num < len(self.lines):
