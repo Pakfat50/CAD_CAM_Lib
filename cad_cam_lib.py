@@ -25,6 +25,7 @@ N_AIRFOIL_INTERPOLATE = 1000 # 翼型補完時の補完点数
 N_LINE_INTERPOLATE = 10 # 線分をポリライン・スプラインへ変換した際の補完点数
 DELTA_U = 0.01 # ベクトル算出用のu差分
 DIST_NEAR = 0.00001 # 近傍点の判定距離
+DIST_INSERT_FILET = DIST_NEAR * 10 # 線郡間にフィレットを挿入する判定距離。DIST_NEARより大きい必要あり
 DXF_LINETYPES_DEFAULT = "ByLayer" #dxfファイルのデフォルト線種
 DXF_COLOR_DEFAULT = 0 # dxfファイルのデフォルト線色。AutoCAD Color Index (ACI)で指定
 DXF_WIDTH_DEFAULT = 2 # dxfファイルのデフォルト線幅。
@@ -294,25 +295,27 @@ class LineGroup(Line):
         self.update()
         
     def insertFilet(self):
-        if np.abs(self.offset_dist) > DIST_NEAR:
+        if np.abs(self.offset_dist) > DIST_INSERT_FILET:
             lines = [self.lines[0]]
             i = 1
             while i < len(self.lines):
                 line_st = self.lines[i-1]
                 line_ed = self.lines[i]
-                sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
-                sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
-                new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.offset_dist))
-                lines.append(filet)
+                if norm(line_st.ed[0], line_st.ed[1], line_ed.st[0], line_ed.st[1]) > DIST_INSERT_FILET:
+                    sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
+                    sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
+                    new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.offset_dist))
+                    lines.append(filet)
                 lines.append(self.lines[i])
                 i += 1
                 
             line_st = self.lines[-1]
             line_ed = self.lines[0]
-            sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
-            sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
-            new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.offset_dist))
-            lines.append(filet)
+            if norm(line_st.ed[0], line_st.ed[1], line_ed.st[0], line_ed.st[1]) > DIST_NEAR:
+                sl_st = SLine([line_st.x[-2], line_st.x[-1]], [line_st.y[-2], line_st.y[-1]])
+                sl_ed = SLine([line_ed.x[0], line_ed.x[1]], [line_ed.y[0], line_ed.y[1]])
+                new_l0, new_l1, filet = filetLines(sl_st, sl_ed, np.abs(self.offset_dist))
+                lines.append(filet)
                 
             self.lines = lines
         self.update()

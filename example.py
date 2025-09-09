@@ -153,6 +153,8 @@ def meka_rib_demo(plotGraph):
 
     rib_outer = clib.LineGroup(rib_outer_list)
     rib_outer.sort(0)
+    o_rib_outer = clib.offset(rib_outer, -1.5)
+    o_rib_outer.insertFilet()
         
     ############################ 桁穴生成 ################################
     cy = float(center.getYfromX(cx))
@@ -256,6 +258,7 @@ def meka_rib_demo(plotGraph):
     print("プランク面積: %s mm^2"%plank.area)
     print("肉抜き面積: %s mm^2"%ls_f_area_sum)
     
+    
     ############################ DXFへ出力 ################################
     # dxfファイルに保存
     # ezdxfのモデルワークスペースオブジェクトを生成
@@ -312,6 +315,8 @@ def meka_rib_demo(plotGraph):
 
         for ls_r in ls_r_list:
             plt.plot(ls_r.x, ls_r.y, "k")
+        
+        plt.plot(o_rib_outer.x, o_rib_outer.y, "r--")
         
         plt.axis("equal")
         plt.title("Rib generation Example")
