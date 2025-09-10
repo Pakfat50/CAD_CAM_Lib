@@ -2102,7 +2102,7 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
-    #meka_rib_demo(True)
+    meka_rib_demo(True)
     make_plank_demo(True)
     #example_3_2_1_1(True)
     #example_3_2_2_1(True)
