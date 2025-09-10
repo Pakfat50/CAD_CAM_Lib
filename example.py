@@ -8,6 +8,7 @@ Created on Sun Aug 17 13:36:54 2025
 # 外部ライブラリ
 from matplotlib import pyplot as plt
 import numpy as np
+from scipy import interpolate as intp
 import ezdxf as ez
 from ezdxf import recover
 from ezdxf.addons.drawing import RenderContext, Frontend
@@ -25,9 +26,12 @@ def meka_rib_demo(plotGraph):
     ration = 0.3 # 翼型混合比
     chord = 600 # コード長 [mm]
     # プランクの情報
-    t_plank = 2 # プランク厚 [mm]
+    # t_plank = 2 # プランク厚（固定値）[mm]
+    f_t_plank_x = np.array([-1.0, 0.0, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 1.0, 2.0])*chord # x座標 [mm]
+    f_t_plank_t = np.array([5.0, 5.0, 3.5, 3.0, 2.8, 2.5, 2.1, 2.0, 2.0, 2.0]) # x座標に対応するプランク厚 [mm]
+    f_t_plank = intp.interp1d(f_t_plank_x, f_t_plank_t, kind = "cubic") # プランクの厚み変更用関数 [mm]
     x_plank_u = chord*0.7 # 上面プランク端 [mm]
-    x_plank_l = chord*0.2 # 下面プランク端 [mm]
+    x_plank_l = chord*0.25 # 下面プランク端 [mm]
     plank_fr = 1.6 # プランクフィレット径 [mm]（NC加工のため設定）
     # ストリンガーの情報
     st_width = 4 # ストリンガー幅 [mm]
@@ -98,7 +102,7 @@ def meka_rib_demo(plotGraph):
     
     ############################ プランク生成 ###############################
     # プランクの内側用のスプラインを生成
-    plank_l = clib.offset(outer, t_plank)
+    plank_l = clib.offsetFromFunc(outer, f_t_plank, 1, d_func_axis = "x")
     
     # プランク端面を生成
     y_plank_u = max(plank_l.getYfromX(x_plank_u))
@@ -126,8 +130,8 @@ def meka_rib_demo(plotGraph):
     ############################ ストリンガー生成 ############################
     # ストリンガーはプランクの内側に配置するので、プランク内側のスプラインを作成
     # xに対してｙを単射として、諸々の処理をやりやすくするため、プランク内側の上面／下面を生成
-    f_st_u = clib.offset(upper, -t_plank)
-    f_st_l = clib.offset(lower, t_plank)
+    f_st_u = clib.offsetFromFunc(upper, f_t_plank, -1, d_func_axis = "x")
+    f_st_l = clib.offsetFromFunc(lower, f_t_plank, 1, d_func_axis = "x")
     
     # ストリンガーを生成
     def make_stringer(x, f, height):
@@ -166,8 +170,8 @@ def meka_rib_demo(plotGraph):
     rib_outer_l = clib.trim(outer, u_outer_l, 1) # プランク下面端～後縁　
     
     # xに対してｙを単射として、諸々の処理をやりやすくするため、プランク内側の上面／下面を生成
-    rib_plank_u = clib.offset(upper, -t_plank) # プランク内側の上面
-    rib_plank_l = clib.offset(lower, t_plank) # プランク内側の下面
+    rib_plank_u = clib.offsetFromFunc(upper, f_t_plank, -1, d_func_axis = "x") # プランク内側の上面
+    rib_plank_l = clib.offsetFromFunc(lower, f_t_plank, 1, d_func_axis = "x") # プランク内側の下面
     
     # プランク端にフィレットを挿入&トリムする
     line_plank_u, rib_plank_u, plank_f_u = clib.filetLineCurve(line_plank_u, rib_plank_u, plank_fr, 2, 0.5)

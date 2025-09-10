@@ -858,7 +858,7 @@ def offset(line, d):
         while i < len(line.x):
             x = line.x[i]
             y = line.y[i]
-            u = line.u[i]  #Splineのuは、各x, y座標に対応するuを格納している
+            u = line.u[i]  #Splineのuは、各x, y座標に対応するuを格納している               
             
             # m1を用いてarctanで傾きを求めると、象限の情報が失われてしまうため、微分値からarctan2を用いて求める
             diff = line.f_diff(u)
@@ -871,7 +871,7 @@ def offset(line, d):
         new_x = np.array(new_x)
         new_y = np.array(new_y)
         
-    
+        
     if line.line_type == "Spline":
         return Spline(new_x, new_y)
     
@@ -907,6 +907,47 @@ def offset(line, d):
     
     else:
         print("Offset Error %s is not known line_type"%line.line_type)
+
+
+def offsetFromFunc(line, d_func, sign, d_func_axis = "x"):
+    new_x = []
+    new_y = []
+    
+    if (line.line_type == "Spline") or (line.line_type == "Polyline"):
+        i = 0
+        while i < len(line.x):
+            x = line.x[i]
+            y = line.y[i]
+            u = line.u[i]  #Splineのuは、各x, y座標に対応するuを格納している
+            
+            # オフセット距離を変数で変更する
+            if d_func_axis == "x":
+                d_val = d_func(x) * sign
+            elif d_func_axis == "y":
+                d_val = d_func(y) * sign                   
+            else:
+                d_val = d_func(u) * sign
+                    
+            # m1を用いてarctanで傾きを求めると、象限の情報が失われてしまうため、微分値からarctan2を用いて求める
+            diff = line.f_diff(u)
+            sita = np.arctan2(diff[1], diff[0])
+            
+            new_x.append(x - d_val*np.sin(sita))
+            new_y.append(y + d_val*np.cos(sita))
+            i += 1
+        
+        new_x = np.array(new_x)
+        new_y = np.array(new_y)
+        
+    
+    if line.line_type == "Spline":
+        return Spline(new_x, new_y)
+    
+    elif line.line_type == "Polyline":
+        return Polyline(new_x, new_y)
+     
+    else:
+        print("Offset by Function is only supported in Spline and Polyline. Error %s is not supported line_type"%line.line_type)
 
 def scale(line, s, x0, y0):
     
