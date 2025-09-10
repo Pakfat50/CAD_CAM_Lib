@@ -21,29 +21,51 @@ import cad_cam_lib as clib
 
 def meka_rib_demo(plotGraph):
     ############################ リブ情報 ###################################
+    # リブ全般の情報
     ration = 0.3 # 翼型混合比
     chord = 600 # コード長 [mm]
+    # プランクの情報
     t_plank = 2 # プランク厚 [mm]
-    
     x_plank_u = chord*0.7 # 上面プランク端 [mm]
     x_plank_l = chord*0.2 # 下面プランク端 [mm]
-    plank_fr = 1.6 # プランクフィレット径 [mm]
-    
+    plank_fr = 1.6 # プランクフィレット径 [mm]（NC加工のため設定）
+    # ストリンガーの情報
     st_width = 4 # ストリンガー幅 [mm]
     st_hight = 4 # ストリンガー高 [mm]
-    st_fr = 1.6 # ストリンガーフィレット径 [mm]
+    st_fr = 1.6 # ストリンガーフィレット径 [mm]（NC加工のため設定）
     x_st1 = x_plank_u-20 #[mm]
     x_st2 = x_plank_l-20 #[mm]
-    
+    # 桁穴の情報
     cx = chord*0.35 # 桁穴位置 [mm]
     cr = 25 # 桁穴径（半径）
-    
+    # 肉抜きの情報
     tr_dist = 10 # トラス肉抜き幅 [mm]
     tr_angle = np.radians(60) # トラス角度 [rad]
     fr = 4 # フィレット半径
     area_min = 500 # 肉抜き最小面積 [mm^2]
-    
+    # 迎角線の情報
     rot = np.radians(3) # 取付迎角 [rad]
+    
+    ############################ CAM情報 ##################################
+    # 工具の情報
+    r_tool = 1.5 # 工具径（半径） [mm]
+    # 加工開始座標
+    ox_st = 10 # 加工開始X座標 [mm]
+    oy_st = 10 # 加工開始Y座標 [mm]
+    # 加工終了座標
+    ox_ed = 100 # 加工終了X座標 [mm]
+    oy_ed = 100 # 加工終了Y座標 [mm]
+    # Z軸の値を定義
+    z_high = 60 # 逃げ加工時のZ座標 [mm]
+    z_low = 0 # 加工時のZ座標 [mm]
+    #送り速度の定義。今回はデモ用に爆速で設定
+    fs = 10000 # 早送り [mm/min] 
+    cs = 3000 # 加工 [mm/min]
+    ms = 1000 # ミリング速度 [mm/min]
+    # 加工前のマシン設定（Gコードの書き出し）
+    g_code_start = "T1\nG17 G49 G54 G80 G90 G94 G21 G40\n"    
+    
+    
     
     ############################ 翼型生成 #################################
     # DAE51, NACA2412の座標点を読み込み
@@ -54,9 +76,12 @@ def meka_rib_demo(plotGraph):
     dae51 = clib.Airfoil(x1, y1)
     naca2412 = clib.Airfoil(x2, y2)
     
+    
+    
     ############################ 外形生成 #################################
     # 翼型混合
     airfoil = clib.mixAirfoilXFLR(dae51, naca2412, ration)
+    
     # もとになるスプラインを生成
     outer = clib.Spline(airfoil.x_intp, airfoil.y_intp) # datファイルは座標点が荒いので補完座標で作成
     upper = clib.Spline(airfoil.ux, airfoil.uy)
@@ -69,7 +94,10 @@ def meka_rib_demo(plotGraph):
     lower = clib.scale(lower, chord, 0, 0)
     center = clib.scale(center, chord, 0, 0)
     
+    
+    
     ############################ プランク生成 ###############################
+    # プランクの内側用のスプラインを生成
     plank_l = clib.offset(outer, t_plank)
     
     # プランク端面を生成
@@ -94,39 +122,61 @@ def meka_rib_demo(plotGraph):
     plank.sort(0)
     
     
+    
     ############################ ストリンガー生成 ############################
+    # ストリンガーはプランクの内側に配置するので、プランク内側のスプラインを作成
+    # xに対してｙを単射として、諸々の処理をやりやすくするため、プランク内側の上面／下面を生成
     f_st_u = clib.offset(upper, -t_plank)
     f_st_l = clib.offset(lower, t_plank)
     
+    # ストリンガーを生成
     def make_stringer(x, f, height):
+        # ストリンガーの中心のX座標から、ストリンガー端面のX座標を計算
         x_st_st = x-st_width/2
         x_st_ed = x+st_width/2
+        # ストリンガー端面のy座標を計算
         y_st_st = float(f.getYfromX(x_st_st))
         y_st_ed = float(f.getYfromX(x_st_ed))
+        # ストリンガーのうち、リブ内面側の線を作成。
         l2 = clib.SLine([x_st_st, x_st_ed], [y_st_st, y_st_ed])
         l2 = clib.offset(l2, height)
+        # ストリンガーの端面の線を作成
         l1 = clib.SLine([x_st_st, l2.st[0]], [y_st_st, l2.st[1]])
         l3 = clib.SLine([l2.ed[0], x_st_ed], [l2.ed[1], y_st_ed])
+        # NC加工できるようにフィレットを追加
         l1, l2, f_12 = clib.filetLines(l1, l2, st_fr)
         l2, l3, f_23 = clib.filetLines(l2, l3, st_fr)
+        # 線郡化
         ls_st = clib.LineGroup([l1, l2, l3, f_12, f_23])
+        # l1（X座標の小さい方の端面）を始点としてソート
         ls_st.sort(0)
         return ls_st
     
+    # 上面側のストリンガーを生成
     st1 = make_stringer(x_st1, f_st_u, -st_hight)
+    # 下面側のストリンガーを生成
     st2 = make_stringer(x_st2, f_st_l, st_hight)
     
-    ############################ リブ外形を整形 ############################
-    rib_outer_u = clib.trim(outer, 0, u_outer_u)
-    rib_outer_l = clib.trim(outer, u_outer_l, 1)
     
-    rib_plank_u = clib.offset(upper, -t_plank)
-    rib_plank_l = clib.offset(lower, t_plank)
+    
+    ############################ リブ外形を整形 ############################
+    # 後縁～プランク上面端　と　プランク下面端～後縁　までとなるように、リブ外形をトリムする
+    # プランク端でのリブ外形の交点はプランク生成で求めているので、その結果を用いる
+    rib_outer_u = clib.trim(outer, 0, u_outer_u) # 後縁～プランク上面端
+    rib_outer_l = clib.trim(outer, u_outer_l, 1) # プランク下面端～後縁　
+    
+    # xに対してｙを単射として、諸々の処理をやりやすくするため、プランク内側の上面／下面を生成
+    rib_plank_u = clib.offset(upper, -t_plank) # プランク内側の上面
+    rib_plank_l = clib.offset(lower, t_plank) # プランク内側の下面
+    
+    # プランク端にフィレットを挿入&トリムする
     line_plank_u, rib_plank_u, plank_f_u = clib.filetLineCurve(line_plank_u, rib_plank_u, plank_fr, 2, 0.5)
     line_plank_l, rib_plank_l, plank_f_l = clib.filetLineCurve(line_plank_l, rib_plank_l, plank_fr, 3, 0.5)
     
+    # リブ外形に使用する線のリストを作成する
     rib_outer_list = [rib_outer_u, rib_outer_l, line_plank_u, line_plank_l, plank_f_u, plank_f_l]
     
+    # ストリンガーを加工するため、ストリンガーとの交点で、リブ外形を分割する
     def trim_stringer(f, st):
         # 前提として、fは単射（upper or lowerをオフセットしたもの） かつ、x軸に対して単調増加
         x_st = min(st.st[0], st.ed[0])
@@ -137,34 +187,46 @@ def meka_rib_demo(plotGraph):
         f_ed = clib.trim(f, u_ed, 1)
         return f_st, f_ed
     
+    # 上面のストリンガーでリブ外形をトリム
     rib_plank_u_f, rib_plank_u_r = trim_stringer(rib_plank_u, st1)
+    # 下面のストリンガーでリブ外形をトリム
     rib_plank_l_f, rib_plank_l_r = trim_stringer(rib_plank_l, st2)
     
+    # トリムしたリブ外形をリブ外形に使用する線のリストに追加する
     rib_outer_list.append(rib_plank_u_f)
     rib_outer_list.append(rib_plank_u_r)
     rib_outer_list.append(rib_plank_l_f)
     rib_outer_list.append(rib_plank_l_r)
+    
+    # ストリンガーをリブ外形に使用する線のリストに追加する
     rib_outer_list = rib_outer_list + st1.lines
     rib_outer_list = rib_outer_list + st2.lines
     
-    if not outer.closed: # リブが閉じていない場合、後縁を整形
+    # リブが閉じていない場合、後縁の隙間を接続する線を追加する
+    if not outer.closed: 
         line_edge = clib.SLine([outer.st[0], outer.ed[0]], [outer.st[1], outer.ed[1]])
         rib_outer_list.append(line_edge)
 
+    # リブ外形に使用する線のリストから、リブ外形の線郡を生成する
     rib_outer = clib.LineGroup(rib_outer_list)
+    # 後縁～プランク上面端の線を始点として、一筆書きできるように並び替える
     rib_outer.sort(0)
-    o_rib_outer = clib.offset(rib_outer, -1.5)
-    o_rib_outer.insertFilet()
         
+    
+    
     ############################ 桁穴生成 ################################
+    # 桁穴のY座標はキャンバーラインの中心に配置する
     cy = float(center.getYfromX(cx))
+    # 桁穴を生成
     circle = clib.Circle(cr, cx, cy)
     
     
+    
     ############################ 迎角線生成 ##############################
-    line_a0 = clib.SLine([-20, chord+20], [cy, cy])
-    line_a1 = clib.rotate(line_a0, rot, cx, cy)
-    line_a2 = clib.SLine([cx, cx], [cy - cr*3, cy + cr*3])
+    line_a0 = clib.SLine([-20, chord+20], [cy, cy]) # CADのX軸に並行な線
+    line_a1 = clib.rotate(line_a0, rot, cx, cy) # CADのX軸に並行な線を取付迎角だけ回転した線
+    line_a2 = clib.SLine([cx, cx], [cy - cr*3, cy + cr*3]) # CADのY軸に並行な線
+    
     
     
     ############################ トラス肉抜き　###############################
@@ -244,6 +306,8 @@ def meka_rib_demo(plotGraph):
         ls_r_list.append(ls_tras)
         i += 1
     
+    
+    
     ############################ 面積を表示 ###############################
     ls_f_area_sum = 0
     for ls_f in ls_f_list:
@@ -257,6 +321,7 @@ def meka_rib_demo(plotGraph):
     print("リブ面積: %s mm^2"%rib_area)
     print("プランク面積: %s mm^2"%plank.area)
     print("肉抜き面積: %s mm^2"%ls_f_area_sum)
+    
     
     
     ############################ DXFへ出力 ################################
@@ -290,37 +355,139 @@ def meka_rib_demo(plotGraph):
     # dxfを出力
     doc.saveas('example_rib_generation.dxf')
     
-    ############################ 終了 #################################
     
     
+    ############################ カットパスを生成 ############################
+    # 座標点生成からPythonで行っている場合、加工対象の線が内側か外側かは自明なので、内外判定は省略できる
+    
+    # 桁穴のカットパスを生成
+    # 桁穴はリブの内側にあるので時計回りでカット
+    if circle.ccw == True:
+        cam_circle = clib.invert(circle)
+    else:
+        cam_circle = copy.deepcopy(circle)
+    cam_circle = clib.offset(cam_circle, -r_tool)
+
+    # 前方トラス肉抜きのカットパスを生成
+    # 肉抜きはリブの内側にあるので時計回りでカット    
+    cam_ls_f_list = copy.deepcopy(ls_f_list)
+    i = 0
+    while i < len(cam_ls_f_list):
+        ls_f = cam_ls_f_list[i]
+        if ls_f.ccw == True:
+            ls_f = clib.invert(ls_f)
+        ls_f = clib.offset(ls_f, -r_tool)
+        cam_ls_f_list[i] = ls_f
+        i += 1
+        
+    # 後方トラス肉抜きのカットパスを生成
+    # 肉抜きはリブの内側にあるので時計回りでカット       
+    cam_ls_r_list = copy.deepcopy(ls_r_list)
+    i = 0
+    while i < len(cam_ls_r_list):
+        ls_r = cam_ls_r_list[i]
+        if ls_r.ccw == True:
+            ls_r = clib.invert(ls_r)
+        ls_r = clib.offset(ls_r, -r_tool)
+        cam_ls_r_list[i] = ls_r
+        i += 1            
+
+    # リブ外形のカットパスを生成
+    # リブ外形は、一番外側にあるので反時計周りでカット
+    if rib_outer.ccw == False:
+        cam_rib_outer = clib.invert(rib_outer)
+    else:
+        cam_rib_outer = copy.deepcopy(rib_outer)
+    cam_rib_outer = clib.offset(rib_outer, -r_tool)
+    cam_rib_outer.insertFilet()
+    
+    
+    # 加工対象をリストにまとめる
+    # 追加した順にカットされる。内側のオブジェクトからカットする必要あり。
+    # 最も加工精度が要求される桁穴から加工する
+    cam_cut_path_list = []
+    cam_cut_path_list.append(cam_circle) # 桁穴
+    cam_cut_path_list += cam_ls_f_list # 前方肉抜き
+    cam_cut_path_list += cam_ls_r_list # 後方肉抜き
+    cam_cut_path_list.append(cam_rib_outer) # リブ外形
+    
+    
+    
+    ############################ Gコード出力 ############################
+    g_code_str = g_code_start # マシン設定等を最初に出力
+    g_code_str += clib.genGCodeStr([ox_st], [oy_st], [z_high], fs, "G0") # 加工開始座標へ移動
+    
+    # 加工パスをGコード出力
+    i = 0
+    while i < len(cam_cut_path_list):
+        cam_cut_path = cam_cut_path_list[i]
+        # 開始点へ移動
+        g_code_str += clib.genGCodeStr([cam_cut_path.st[0]], [cam_cut_path.st[1]], [z_high], fs, "G0")
+        # Z軸をミリング
+        g_code_str += clib.genGCodeStr([cam_cut_path.st[0]], [cam_cut_path.st[1]], [z_low], ms, "G1")
+        # 加工
+        g_code_str += clib.genGCodeStr(cam_cut_path.x, cam_cut_path.y, [z_low]*len(cam_cut_path.x), cs, "G1")
+        # Z方向に退避
+        g_code_str += clib.genGCodeStr([cam_cut_path.ed[0]], [cam_cut_path.ed[1]], [z_high], ms, "G1")
+        i += 1
+    
+    # 加工終了座標へ移動
+    g_code_str += clib.genGCodeStr([ox_ed], [oy_ed], [z_high], fs, "G0")
+
+    # Gコードファイル（.nc）として保存。拡張子はCNCコントローラーによって適宜変更
+    f = open("example_rib_gcode_generation.nc", "w")
+    f.writelines(g_code_str)
+    f.close()
+    
+    ###################### 必要に応じてグラフを表示 ########################
     if plotGraph == True:
         plt.figure(figsize=(10.0, 8.0))
-        #plt.plot(outer.x, outer.y,"b")
-        plt.plot(rib_outer.x, rib_outer.y ,"k")
-        #plt.plot(upper.x, upper.y)
-        #plt.plot(lower.x, lower.y)
-        plt.plot(center.x, center.y, "g--")
-        plt.plot(plank.x, plank.y, "b--")
-        plt.plot(circle.x, circle.y, "k")
-        plt.plot(line_a0.x, line_a0.y, "k--")
-        plt.plot(line_a1.x, line_a1.y, "r--")
-        plt.plot(line_a2.x, line_a2.y, "k--")
-        #plt.plot(tr_u.x, tr_u.y, "b--")
-        #plt.plot(tr_l.x, tr_l.y, "b--")
-        #plt.plot(l0_f.x, l0_f.y, "b--")
-        #plt.plot(plank_l_f.x, plank_l_f.y, "g--", linewidth = 3)
+        #plt.plot(outer.x, outer.y,"g--") # 翼型混合して拡大しただけの線
+        plt.plot(rib_outer.x, rib_outer.y ,"k") # リブ外形
+        #plt.plot(upper.x, upper.y, "g--") # 翼型混合して拡大しただけの線（上面のみ）
+        #plt.plot(lower.x, lower.y, "g--") # 翼型混合して拡大しただけの線（下面のみ）
+        plt.plot(center.x, center.y, "g--") # キャンバーライン
+        plt.plot(plank.x, plank.y, "b--") # プランク
+        plt.plot(circle.x, circle.y, "k") # 桁穴
+        plt.plot(line_a0.x, line_a0.y, "k--") # CADのX軸に並行な線
+        plt.plot(line_a1.x, line_a1.y, "r--") # 取付迎角回した線
+        plt.plot(line_a2.x, line_a2.y, "k--") # CADのY軸に並行な線
+        #plt.plot(tr_u.x, tr_u.y, "g--") # トラス肉抜き用にトラス距離をオフセットした上面の線
+        #plt.plot(tr_l.x, tr_l.y, "g--") # トラス肉抜き用にトラス距離をオフセットした下面の線
+        #plt.plot(l0_f.x, l0_f.y, "g--") # トラス肉抜き用に桁穴中心を通るトラス角度回転した線分
         
+        # 前方への肉抜きをプロット
         for ls_f in ls_f_list:
             plt.plot(ls_f.x, ls_f.y, "k")
-
+        # 後方への肉抜きをプロット
         for ls_r in ls_r_list:
             plt.plot(ls_r.x, ls_r.y, "k")
-        
-        plt.plot(o_rib_outer.x, o_rib_outer.y, "r--")
-        
         plt.axis("equal")
         plt.title("Rib generation Example")
         plt.savefig("res/Example of Rib_generation.svg")
+
+        
+        ### CAMでのカットパスをプロット ###
+        plt.figure(figsize=(10.0, 8.0))
+        line_st = cam_cut_path_list[0]
+        line_ed = cam_cut_path_list[-1]
+        plt.plot([ox_st, line_st.st[0]], [oy_st, line_st.st[1]], "g--") # 開始座標点～最初の加工点までの移動
+        plt.plot([line_ed.ed[0], ox_ed], [line_ed.ed[1], oy_ed], "g--") # 最後の加工点～終了座標点までの移動
+        plt.plot(line_st.x, line_st.y, "r") # 最初の線の加工パスをプロット（iの番号合わせのため）
+        # 加工パスをプロット
+        i = 1
+        while i < len(cam_cut_path_list):
+            line_st = cam_cut_path_list[i-1]
+            line_ed = cam_cut_path_list[i]
+            plt.plot([line_st.ed[0], line_ed.st[0]], [line_st.ed[1], line_ed.st[1]], "g--") # 線郡から線郡への逃げをプロット
+            plt.plot(line_ed.x, line_ed.y, "r") # 加工パスをプロット
+            i += 1
+        plt.axis("equal")
+        plt.title("Rib Gcode generation Example")
+        plt.savefig("res/Example of Rib Gcode generation.svg")
+        
+    ############################ デモ終了 ###############################
+
 
 
 def example_3_2_1_1(plotGraph):
@@ -1746,7 +1913,7 @@ def example_5_4(plotGraph):
     print("G Code is bellow")
     print(g_code_str)
     
-    # スクリプトファイル（.scr）として保存
+    # Gコードファイル（.nc）として保存。拡張子はCNCコントローラーによって適宜変更
     f = open("example_5_4.nc", "w")
     f.writelines(g_code_str)
     f.close()
