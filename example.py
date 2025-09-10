@@ -494,6 +494,177 @@ def meka_rib_demo(plotGraph):
 
 
 
+def make_plank_demo(plotGraph):
+    ############################ リブ情報 ###################################
+    # リブ全般の情報
+    ration = np.array([0.3, 0.2]) # 翼型混合比
+    chord = np.array([600, 500]) # コード長 [mm]
+    # プランクの情報
+    # t_plank = 2 # プランク厚（固定値）[mm]
+    f_t_plank_x_norm = np.array([-1.0, 0.0, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 1.0, 2.0]) # x座標の割合
+    f_t_plank_t = np.array([5.0, 5.0, 3.5, 3.0, 2.8, 2.5, 2.1, 2.0, 2.0, 2.0]) # x座標に対応するプランク厚 [mm]
+    f_t_plank = [intp.interp1d(f_t_plank_x_norm*chord[0], f_t_plank_t, kind = "cubic"), \
+                 intp.interp1d(f_t_plank_x_norm*chord[1], f_t_plank_t, kind = "cubic")]# プランクの厚み変更用関数 [mm]
+    x_plank_u = chord*0.25 # 上面プランク端 [mm] 立体切り出しするのは一部のみ
+    x_plank_l = chord*0.25 # 下面プランク端 [mm]
+    # 桁穴の情報
+    cx = chord*0.35 # 桁穴位置 [mm]
+    # 迎角線の情報
+    rot = np.array([np.radians(3), np.radians(1)]) # 取付迎角 [rad]
+
+    ############################ CAM情報 ##################################
+    # オフセット距離
+    offset_dist = [0.5, 0.4] # [mm] 固定値で指定
+    # 加工開始座標
+    ox_st = 0 # 加工開始X座標 [mm]
+    oy_st = 50 # 加工開始Y座標 [mm]
+    # 加工終了座標
+    ox_ed = 0 # 加工終了X座標 [mm]
+    oy_ed = -10 # 加工終了Y座標 [mm]
+    # 加工速度
+    cs = 100 # [mm/s]　カット速度
+    fs = 1000 # [mm/s] 送り速度
+    # 加工幅
+    delta_cut = 0.2 # [mm]
+    # 加工前のマシン設定（Gコードの書き出し）
+    g_code_start = "T1\nG17 G49 G54 G80 G90 G94 G21 G40\n"   
+
+    ############################ 翼型生成 #################################
+    # DAE51, NACA2412の座標点を読み込み
+    x1, y1 = clib.importFromText("foils/dae51.dat", '\t', 1)
+    x2, y2 = clib.importFromText("foils/naca2412.dat", ' ', 1)
+    
+    # DAE51とNACA2412の翼形クラスのインスタンスを作成
+    dae51 = clib.Airfoil(x1, y1)
+    naca2412 = clib.Airfoil(x2, y2)
+    
+    
+    ############################ プランクを生成 ##############################
+    plank_list = []
+    i = 0
+    while i < len(chord):
+        ############################ 外形生成 #################################
+        # 翼型混合
+        airfoil = clib.mixAirfoilXFLR(dae51, naca2412, ration[i])
+        
+        # もとになるスプラインを生成
+        outer = clib.Spline(airfoil.x_intp, airfoil.y_intp) # datファイルは座標点が荒いので補完座標で作成
+        upper = clib.Spline(airfoil.ux, airfoil.uy)
+        lower = clib.Spline(airfoil.lx, airfoil.ly)
+        center = clib.Spline(airfoil.cx, airfoil.cy)
+        
+        # コード倍に拡大
+        outer = clib.scale(outer, chord[i], 0, 0)
+        upper = clib.scale(upper, chord[i], 0, 0)
+        lower = clib.scale(lower, chord[i], 0, 0)
+        center = clib.scale(center, chord[i], 0, 0)
+    
+        
+        ############################ プランク生成 ###############################
+        # プランクの内側用のスプラインを生成
+        f_t = f_t_plank[i]
+        x_u = x_plank_u[i]
+        x_l = x_plank_l[i]
+        
+        plank_l = clib.offsetFromFunc(outer, f_t, 1, d_func_axis = "x")
+        
+        # プランク端面を生成
+        y_plank_u = max(plank_l.getYfromX(x_u))
+        y_plank_l = min(plank_l.getYfromX(x_l))
+        y_outer_u = max(outer.getYfromX(x_u))
+        y_outer_l = min(outer.getYfromX(x_l))
+        line_plank_u = clib.SLine([x_u, x_u], [y_plank_u, y_outer_u])
+        line_plank_l = clib.SLine([x_l, x_l], [y_outer_l, y_plank_l])
+        
+        # プランク内側を生成
+        u_plank_u = min(plank_l.getUfromX(x_u))
+        u_plank_l = max(plank_l.getUfromX(x_l))
+        plank_l = clib.trim(plank_l, u_plank_u, u_plank_l)
+        
+        # プランク外側を生成
+        u_outer_u = min(outer.getUfromX(x_u))
+        u_outer_l = max(outer.getUfromX(x_l))
+        plank_u = clib.trim(outer, u_outer_u, u_outer_l)
+        
+        plank = clib.LineGroup([plank_u, plank_l, line_plank_u, line_plank_l])
+        plank.sort(0)
+        
+        ############################ 桁中心を算出 #############################
+        cy = center.getYfromX(cx[i])
+        
+        ############################ 取付迎角だけ回転 ##########################
+        plank = clib.move(plank, -cx[i], -cy) # 桁穴中心を原点に移動
+        plank = clib.rotate(plank, -rot[i], 0, 0) # 原点を中心に迎角分だけ回転
+        plank_list.append(plank)
+        i += 1
+ 
+    
+    ############################ カットパスを生成 #############################
+    cam_plank_list = [] 
+    
+    # 溶けしろ分オフセット& フィレット補完
+    i = 0
+    while i < len(chord):        
+        plank = plank_list[i]
+        d = offset_dist[i]
+        cam_plank = clib.offset(plank, -d)
+        cam_plank.insertFilet()
+        # カットパスを反時計周りにする
+        if cam_plank.ccw == False:
+            cam_plank = clib.invert(cam_plank)
+        cam_plank_list.append(cam_plank)
+        i += 1
+    
+    
+    ############################ Gコードを生成 #############################
+    cam_plank_xy = cam_plank_list[0]
+    cam_plank_uv = cam_plank_list[1]
+    
+    g_code_str = g_code_start
+    g_code_str += clib.genGCodeStrHW([ox_st], [oy_st], [ox_st], [oy_st], fs, "G0")
+    
+    i = 0
+    while i < len(cam_plank_xy.lines):
+        line_xy = cam_plank_xy.lines[i]
+        line_uv = cam_plank_uv.lines[i]
+        if (line_xy.line_type == "Spline") or (line_xy.line_type == "Polyline"):
+            l_xy = line_xy.length
+            l_uv = line_uv.length
+            num = int(max(max(l_xy), max(l_uv))/delta_cut)
+            u = np.linspace(0, 1, num)
+            line_xy.setIntporatePoints(u)
+            line_uv.setIntporatePoints(u)
+            g_code_str += clib.genGCodeStrHW(line_xy.x_intp, line_xy.y_intp, line_uv.x_intp, line_uv.y_intp, cs, "G1")
+        else:
+            g_code_str += clib.genGCodeStrHW(line_xy.x, line_xy.y, line_uv.x, line_uv.y, cs, "G1")
+        i += 1
+    
+    g_code_str += clib.genGCodeStrHW([ox_ed], [oy_ed], [ox_ed], [oy_ed], fs, "G0")
+    
+    # Gコードファイル（.nc）として保存。拡張子はCNCコントローラーによって適宜変更
+    f = open("example_plank_gcode_generation.nc", "w")
+    f.writelines(g_code_str)
+    f.close()    
+    
+    
+    ############################ グラフを描画 #############################
+    if plotGraph == True:
+        plt.figure(figsize=(10.0, 8.0))
+        plt.plot(plank_list[0].st[0], plank_list[0].st[1], "bo")
+        plt.plot(plank_list[1].st[0], plank_list[1].st[1], "ro")
+        plt.plot(plank_list[0].x, plank_list[0].y, "b")
+        plt.plot(plank_list[1].x, plank_list[1].y, "r")
+        
+        plt.plot(cam_plank_list[0].x, cam_plank_list[0].y, "b--")
+        plt.plot(cam_plank_list[1].x, cam_plank_list[1].y, "r--")
+        plt.axis("equal")
+        plt.title("Plank Gcode generation Example")
+        plt.savefig("res/Example of Plank Gcode generation.svg")        
+        
+    ############################ デモ終了 ###############################
+
+
+
 def example_3_2_1_1(plotGraph):
     #座標点変化量による接線の傾き算出
     m1 = clib.getM1(af.NACA2412_X, af.NACA2412_Y)
@@ -1931,7 +2102,8 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
-    meka_rib_demo(True)
+    #meka_rib_demo(True)
+    make_plank_demo(True)
     #example_3_2_1_1(True)
     #example_3_2_2_1(True)
     #example_3_5_1(True)

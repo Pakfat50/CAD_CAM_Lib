@@ -390,9 +390,11 @@ def norm(x1, y1, x2, y2):
 
 def getLength(x, y):
     i = 0
-    length = [0]
+    temp_length = 0
+    length = [temp_length]
     while i < len(x) - 1:
-        length.append(norm(x[i], y[i], x[i+1], y[i+1]))
+        temp_length += norm(x[i], y[i], x[i+1], y[i+1])
+        length.append(temp_length)
         i += 1
     return np.array(length)
 
