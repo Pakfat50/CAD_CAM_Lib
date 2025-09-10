@@ -601,6 +601,9 @@ def invert(line):
             line_list.append(invert(temp_line))
         line_list.reverse()
         return LineGroup(line_list, line.offset_dist)
+    
+    else:
+        print("Invert Error %s is not known line_type"%line.line_type)
 
 
 def detectRotation(x, y):
@@ -771,7 +774,9 @@ def move(line, mx, my):
         for temp_line in line.lines:
             line_list.append(move(temp_line, mx, my))
         return LineGroup(line_list, line.offset_dist)
-
+    
+    else:
+        print("Move Error %s is not known line_type"%line.line_type)
 
 def rotate(line, sita, rx, ry):
     
@@ -828,7 +833,9 @@ def rotate(line, sita, rx, ry):
         for temp_line in line.lines:
             line_list.append(rotate(temp_line, sita, rx, ry))
         return LineGroup(line_list, line.offset_dist)
-
+    
+    else:
+        print("Rotate Error %s is not known line_type"%line.line_type)
 
 def offset(line, d):
     # 半径を変化させてオフセットする円系は、回転方向によるオフセット方向の変化をスプライン等とそろえるため、
@@ -897,7 +904,9 @@ def offset(line, d):
             o_line = removeSelfCollision(o_line)
             line_list.append(o_line)
         return LineGroup(line_list, d)
-
+    
+    else:
+        print("Offset Error %s is not known line_type"%line.line_type)
 
 def scale(line, s, x0, y0):
     
@@ -939,7 +948,9 @@ def scale(line, s, x0, y0):
         for temp_line in line.lines:
             line_list.append(scale(temp_line, s, x0, y0))
         return LineGroup(line_list, line.offset_dist)
-
+    
+    else:
+        print("Scale Error %s is not known line_type"%line.line_type)
 
 
 def getFiletSita(sita_st, sita_ed):
@@ -1438,6 +1449,8 @@ def trim(line, st, ed, lineAxis = "x"):
         #翼型をトリムしたオブジェクトはスプラインを返す
         return Spline(new_x, new_y)
 
+    else:
+        print("Trim Error %s is not known line_type"%line.line_type)
 
 def getTuplePoints(x, y):
     points = []
@@ -1499,6 +1512,9 @@ def exportLine2CommandScript(line):
     elif line.line_type == "LineGroup":
         for l in line.lines:
             temp_str += exportLine2CommandScript(l)
+
+    else:
+        print("CAD Command Output Error %s is not known line_type"%line.line_type)
     
     return temp_str 
 
@@ -1550,6 +1566,8 @@ def exportLine2ModeWorkSpace(msp, layer, line, \
         for l in line.lines:
             exportLine2ModeWorkSpace(msp, layer, l, color, linetypes, width)
 
+    else:
+        print("DXF File Output Error %s is not known line_type"%line.line_type)
     
 def importLinesFromDxf(msp, dxf_object_type):
     line_objs = msp.query(dxf_object_type)
@@ -1615,6 +1633,9 @@ def importLinesFromDxf(msp, dxf_object_type):
                 polyline = Polyline(x, y) 
                 line_list.append(polyline)     
 
+        else:
+            print("DXF Import Error %s is not known dxf_object_type"%dxf_object_type)
+            
         return line_list     
 
 
@@ -1720,7 +1741,8 @@ def getInclusionList(parent_line, child_line):
             inside_y.append(y)
             x = [child_line.x[i]]
             y = [child_line.y[i]]
-        elif (parent_polygon.contains(point) == False) and (is_inside == False):
+        else:
+            # (parent_polygon.contains(point) == False) and (is_inside == False)
             is_inside = False
             x.append(child_line.x[i])
             y.append(child_line.y[i])          
