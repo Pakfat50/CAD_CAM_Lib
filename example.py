@@ -516,16 +516,19 @@ def make_plank_demo(plotGraph):
     # オフセット距離
     offset_dist = [0.5, 0.4] # [mm] 固定値で指定
     # 加工開始座標
-    ox_st = 0 # 加工開始X座標 [mm]
+    ox_st = 200 # 加工開始X座標 [mm]
     oy_st = 50 # 加工開始Y座標 [mm]
     # 加工終了座標
-    ox_ed = 0 # 加工終了X座標 [mm]
-    oy_ed = -10 # 加工終了Y座標 [mm]
+    ox_ed = 200 # 加工終了X座標 [mm]
+    oy_ed = 10 # 加工終了Y座標 [mm]
     # 加工速度
     cs = 100 # [mm/s]　カット速度
     fs = 1000 # [mm/s] 送り速度
     # 加工幅
     delta_cut = 0.2 # [mm]
+    # ワーク原点移動量
+    work_move_x = 220 # [mm]
+    work_move_y = 0 # [mm]
     # 加工前のマシン設定（Gコードの書き出し）
     g_code_start = "T1\nG17 G49 G54 G80 G90 G94 G21 G40\n"   
 
@@ -595,6 +598,7 @@ def make_plank_demo(plotGraph):
         ############################ 取付迎角だけ回転 ##########################
         plank = clib.move(plank, -cx[i], -cy) # 桁穴中心を原点に移動
         plank = clib.rotate(plank, -rot[i], 0, 0) # 原点を中心に迎角分だけ回転
+        plank = clib.move(plank, work_move_x, work_move_y) # ワークの原点を移動
         plank_list.append(plank)
         i += 1
  
@@ -621,7 +625,7 @@ def make_plank_demo(plotGraph):
     cam_plank_uv = cam_plank_list[1]
     
     g_code_str = g_code_start
-    g_code_str += clib.genGCodeStrHW([ox_st], [oy_st], [ox_st], [oy_st], fs, "G0")
+    g_code_str += clib.genGCodeStrHW([ox_st], [oy_st], [ox_st], [oy_st], fs, "G01") # G00はGRBL HWで読み込めなかったためG01
     
     i = 0
     while i < len(cam_plank_xy.lines):
@@ -634,12 +638,13 @@ def make_plank_demo(plotGraph):
             u = np.linspace(0, 1, num)
             line_xy.setIntporatePoints(u)
             line_uv.setIntporatePoints(u)
-            g_code_str += clib.genGCodeStrHW(line_xy.x_intp, line_xy.y_intp, line_uv.x_intp, line_uv.y_intp, cs, "G1")
+            g_code_str += clib.genGCodeStrHW(line_xy.x_intp, line_xy.y_intp, line_uv.x_intp, line_uv.y_intp, cs, "G01")
         else:
-            g_code_str += clib.genGCodeStrHW(line_xy.x, line_xy.y, line_uv.x, line_uv.y, cs, "G1")
+            g_code_str += clib.genGCodeStrHW(line_xy.x, line_xy.y, line_uv.x, line_uv.y, cs, "G01")
         i += 1
     
-    g_code_str += clib.genGCodeStrHW([ox_ed], [oy_ed], [ox_ed], [oy_ed], fs, "G0")
+    g_code_str += clib.genGCodeStrHW([ox_ed], [oy_ed], [ox_ed], [oy_ed], fs, "G01")
+    g_code_str += "M02"
     
     # Gコードファイル（.nc）として保存。拡張子はCNCコントローラーによって適宜変更
     f = open("example_plank_gcode_generation.nc", "w")
@@ -2102,7 +2107,7 @@ def getQuiver(line):
     return line.x[0], line.y[0], x1, y1
 
 if __name__ == '__main__':
-    meka_rib_demo(True)
+    #meka_rib_demo(True)
     make_plank_demo(True)
     #example_3_2_1_1(True)
     #example_3_2_2_1(True)

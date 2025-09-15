@@ -1893,7 +1893,7 @@ def genGCodeStrHW(x,y,u,v, cut_speed, code):
     if len(x) == len(y) == len(u) == len(v):
         i = 0
         while i < len(x):
-            code_str += "%s X%s Y%s U%s V%s F%s\n"%(code, format(x[i], '.6f'), format(y[i], '.6f'), \
+            code_str += "%s X%s Y%s A%s Z%s F%s\n"%(code, format(x[i], '.6f'), format(y[i], '.6f'), \
                                                      format(u[i], '.6f'), format(v[i], '.6f'), \
                                                      format(cut_speed, '.1f'))
             i += 1
